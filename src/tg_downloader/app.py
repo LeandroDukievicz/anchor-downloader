@@ -301,7 +301,7 @@ class DownloaderApp(App):
 
     def _update_header(self):
         text = gradient("TG DOWNLOADER", bold=True)
-        text.append("  v7.0.2", PINK)
+        text.append("  v7.0.3", PINK)
         if self.size.width >= 100:
             text.append("  |  " + self.state.get("account", "")[:24], CYAN)
         status = "DEMO / DADOS SIMULADOS" if self.demo else self.state["phase_label"]
@@ -396,14 +396,23 @@ class DownloaderApp(App):
         filtered = [item for item in self.state["downloads"] if self._matches(item)]
         ids = tuple(item.index for item in filtered)
         columns_changed = signature != self.column_signature
+        cache_invalidated = self.row_signature is None
         previous_ids = self.row_signature or ()
+        rendered_keys = tuple(row_key.value for row_key in table.rows)
+        cache_matches_table = rendered_keys == tuple(str(index) for index in previous_ids)
         append_only = (
-            self.row_signature is not None
+            not cache_invalidated
             and not columns_changed
+            and cache_matches_table
             and len(ids) >= len(previous_ids)
             and ids[:len(previous_ids)] == previous_ids
         )
-        rebuild = columns_changed or (ids != previous_ids and not append_only)
+        rebuild = (
+            columns_changed
+            or cache_invalidated
+            or not cache_matches_table
+            or (ids != previous_ids and not append_only)
+        )
         selected = self.selected_id
         old_row = table.cursor_row
         self.visible_downloads = filtered
