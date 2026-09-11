@@ -9,7 +9,7 @@ __pycache__/
 htmlcov/
 build/
 dist/
-screenshots/
+/screenshots/
 *.log
 *.part
 *.part.*
