@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import fcntl
+import inspect
 import json
 import mimetypes
 import os
@@ -14,7 +15,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from telethon import TelegramClient
-from telethon.errors import FloodWaitError, InviteHashExpiredError, InviteHashInvalidError, RPCError
+from telethon.errors import (
+    FileReferenceExpiredError,
+    FloodWaitError,
+    InviteHashExpiredError,
+    InviteHashInvalidError,
+    RPCError,
+)
 from telethon.sessions import StringSession
 from telethon.tl.functions.messages import CheckChatInviteRequest, ImportChatInviteRequest
 from telethon.tl.types import (
@@ -24,13 +31,25 @@ from telethon.tl.types import (
     MessageMediaPhoto,
 )
 
-BASE_DIR = Path.home() / ".config" / "telegram-downloader"
+from .diagnostics import logger
+
+
+BASE_DIR = Path(
+    os.environ.get(
+        "TG_DOWNLOADER_HOME",
+        Path.home() / ".config" / "telegram-downloader",
+    )
+).expanduser().resolve()
 CONFIG_FILE = BASE_DIR / "config.json"
 STRING_SESSION_FILE = BASE_DIR / "sessions" / "session_string"
 INSTANCE_DIR = BASE_DIR / "instances"
 MAX_SLOT_SEARCH = 999
 MAX_DOWNLOAD_RETRIES = 3
+MAX_TRANSIENT_RETRIES = 12
+MAX_FILE_REFERENCE_REFRESHES = 3
 RETRY_BACKOFF_SECONDS = 2
+MAX_RETRY_BACKOFF_SECONDS = 60
+CHUNK_TIMEOUT_SECONDS = 90
 DEFAULT_CONCURRENT_DOWNLOADS = 4
 DOWNLOAD_CHUNK_SIZE = 512 * 1024
 SPEED_HISTORY_LEN = 120
@@ -90,6 +109,9 @@ async def create_client():
         raise RuntimeError("A StringSession salva e invalida.") from None
     client = TelegramClient(
         session, api_id, api_hash, sequential_updates=False,
+        receive_updates=False, flood_sleep_threshold=0,
+        request_retries=3, connection_retries=3,
+        raise_last_call_error=True,
     )
     try:
         await client.connect()
@@ -173,6 +195,13 @@ def destination_lock(destination):
 
 
 def add_log(state, level, text):
+    diagnostic_level = {
+        "ERR": logger.error,
+        "WARN": logger.warning,
+        "OK": logger.info,
+        "INFO": logger.info,
+    }.get(level, logger.info)
+    diagnostic_level(str(text))
     state["log"].append({
         "time": datetime.now().strftime("%H:%M:%S"),
         "level": level,
@@ -201,16 +230,24 @@ def create_state(slot, concurrency):
         "categories": {name: 0 for name in CATEGORIES},
         "log": deque(maxlen=LOG_MAX_ENTRIES), "selected": 0,
         "expanded_log": False, "stop": False, "render_enabled": False,
-        "last_broadcast": 0, "failed_files": [], "skipped_files": [],
-        "downloaded_files": [], "removed_files": [], "incomplete_files": [],
+        "last_broadcast": 0, "incomplete": 0,
         "recent": deque(maxlen=8), "log_entries": [], "log_path": "",
+        "status_counts": {status: 0 for status in TERMINAL_STATUSES | {"queued", "paused", "downloading"}},
     }
 
 
 class Download:
+    __slots__ = (
+        "index", "message", "message_id", "filename", "target", "category",
+        "expected_size", "message_link", "chat_info", "current_bytes", "speed",
+        "eta", "status", "removed", "resume_event", "completed_at",
+        "original_name", "error", "log_entry",
+    )
+
     def __init__(self, index, message, filename, target, category, expected_size, message_link, chat_info):
         self.index = index
         self.message = message
+        self.message_id = int(message.id)
         self.filename = filename
         self.target = Path(target)
         self.category = category
@@ -238,12 +275,22 @@ class DownloadStopped(Exception):
     pass
 
 
+class DownloadIntegrityError(OSError):
+    pass
+
+
+class DownloadStorageError(OSError):
+    pass
+
+
 def extract_invite_hash(link):
     match = re.search(r"(?:t|telegram)\.me/(?:\+|joinchat/)([A-Za-z0-9_-]+)", link, re.IGNORECASE)
     return match.group(1) if match else None
 
 
 async def resolve_chat(client, link):
+    if hasattr(client, "resolve_link"):
+        return await client.resolve_link(link)
     link = link.strip()
     invite_hash = extract_invite_hash(link)
     if invite_hash:
@@ -597,7 +644,7 @@ def write_download_log(destination, state, stats, started_at):
     ]
 
     try:
-        log_path.write_text("\n".join(lines), encoding="utf-8")
+        atomic_write_text(log_path, "\n".join(lines))
         return log_path
     except Exception:
         return None
@@ -618,9 +665,22 @@ def load_manifest(destination):
 
 def save_manifest(destination, manifest):
     path = Path(destination) / MANIFEST_FILENAME
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(temporary, path)
+    atomic_write_text(path, json.dumps(manifest, ensure_ascii=False, indent=2))
+
+
+def atomic_write_text(path, text):
+    """Replace a small state file only after its complete contents reach disk."""
+    path = Path(path)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8") as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        with contextlib.suppress(OSError):
+            temporary.unlink()
 
 
 def safe_manifest_target(destination, relpath):
@@ -645,6 +705,14 @@ def resolve_unique_path(directory, stem, ext, reserved_paths):
 def recompute_transfer_state(state):
     downloads = state.get("downloads", [])
     active_objects = {id(item["obj"]) for item in state.get("active", {}).values()}
+    counts = {status: 0 for status in TERMINAL_STATUSES | {"queued", "paused", "downloading"}}
+    pending_count = 0
+    pending_preview = []
+    completed_bytes = 0
+    global_bytes = 0
+    discovered_total = 0
+    speed = 0.0
+    remaining = 0
     for item in downloads:
         if item.status not in TERMINAL_STATUSES:
             if not item.resume_event.is_set():
@@ -653,29 +721,42 @@ def recompute_transfer_state(state):
                 item.eta = None
             elif item.status == "paused" and not state.get("stop"):
                 item.status = "downloading" if id(item) in active_objects else "queued"
-    state["completed"] = sum(item.status == "complete" for item in downloads)
-    state["skipped"] = sum(item.status == "skipped" for item in downloads)
-    state["errors"] = sum(item.status == "error" for item in downloads)
-    state["removed"] = sum(item.status == "removed" for item in downloads)
-    pending = [item for item in downloads if item.status in {"queued", "paused"} and id(item) not in active_objects]
+        counts[item.status] = counts.get(item.status, 0) + 1
+        active = id(item) in active_objects
+        if item.status in {"queued", "paused"} and not active:
+            pending_count += 1
+            if len(pending_preview) < 6:
+                pending_preview.append(item.filename)
+        if item.status in {"complete", "skipped"}:
+            completed_bytes += item.current_bytes
+        if item.status != "removed":
+            global_bytes += item.current_bytes
+            discovered_total += item.expected_size or item.current_bytes
+        if item.status == "downloading" and active:
+            speed += item.speed
+        if item.status not in TERMINAL_STATUSES:
+            remaining += max(0, item.expected_size - item.current_bytes)
+
+    state["completed"] = counts["complete"]
+    state["skipped"] = counts["skipped"]
+    state["errors"] = counts["error"]
+    state["removed"] = counts["removed"]
+    state["status_counts"] = counts
     undiscovered = 0
     if state.get("catalog_complete"):
         undiscovered = max(0, state.get("catalog_total_files", 0) - len(downloads))
-    state["pending_count"] = len(pending) + undiscovered
-    state["pending_preview"] = [item.filename for item in pending[:6]]
-    state["_completed_bytes"] = sum(item.current_bytes for item in downloads if item.status in {"complete", "skipped"})
-    state["global_bytes"] = sum(item.current_bytes for item in downloads if item.status != "removed")
-    discovered_total = sum(item.expected_size or item.current_bytes for item in downloads if item.status != "removed")
+    state["pending_count"] = pending_count + undiscovered
+    state["pending_preview"] = pending_preview
+    state["_completed_bytes"] = completed_bytes
+    state["global_bytes"] = global_bytes
     catalog_total = state.get("catalog_total_bytes", 0)
     state["global_total_bytes"] = (
         catalog_total
         if state.get("catalog_complete")
         else max(catalog_total, discovered_total)
     )
-    speed = sum(item.speed for item in downloads if item.status == "downloading" and id(item) in active_objects)
     state["speed"] = speed
     state["peak_speed"] = max(state.get("peak_speed", 0), speed)
-    remaining = sum(max(0, item.expected_size - item.current_bytes) for item in downloads if item.status not in TERMINAL_STATUSES)
     state["eta"] = remaining / speed if speed > 0 else None
 
 
@@ -695,7 +776,6 @@ def _mark_removed(state, item):
     item.status = "removed"
     item.speed = 0
     item.eta = None
-    state["removed_files"].append({"index": item.index, "name": item.filename})
     item.log_entry.update(status="REMOVIDO", reason="Removido da fila. Parcial preservado.", size=item.current_bytes)
     add_recent(state, item.index, item.filename, "REMOVIDO", "-")
     add_log(state, "WARN", f"{item.filename}: removido da fila; parcial preservado.")
@@ -729,12 +809,7 @@ async def _wait_retry(seconds, item, state):
 
 
 def discard_partial_download(part_path, download_obj=None):
-    """Remove a partial file after a failed transfer.
-
-    Partials are useful when the user pauses/stops a download, but they must
-    not be reused after a transfer error: the next attempt has to request the
-    file from byte zero. Symbolic links are rejected instead of being removed.
-    """
+    """Remove a partial after an integrity failure or a non-resumable error."""
     part_path = Path(part_path)
     if part_path.is_symlink():
         raise RuntimeError("O arquivo parcial e um link simbolico.")
@@ -764,9 +839,18 @@ async def download_file_chunked(client, download_obj, part_path, state):
     last_bytes = offset
     download_obj.current_bytes = offset
     try:
-        with part_path.open("r+b" if part_path.exists() else "wb") as output:
-            output.seek(offset)
-            output.truncate()
+        try:
+            output_context = part_path.open(
+                "r+b" if part_path.exists() else "wb", buffering=0,
+            )
+        except OSError as error:
+            raise DownloadStorageError(str(error)) from error
+        with output_context as output:
+            try:
+                output.seek(offset)
+                output.truncate()
+            except OSError as error:
+                raise DownloadStorageError(str(error)) from error
             while True:
                 was_paused = not download_obj.resume_event.is_set()
                 await _wait_ready(download_obj, state)
@@ -774,13 +858,18 @@ async def download_file_chunked(client, download_obj, part_path, state):
                     last_time = time.monotonic()
                     last_bytes = download_obj.current_bytes
                 try:
-                    chunk = await anext(stream)
+                    chunk = await asyncio.wait_for(
+                        anext(stream), timeout=CHUNK_TIMEOUT_SECONDS,
+                    )
                 except StopAsyncIteration:
                     break
                 await _wait_ready(download_obj, state)
                 if not chunk:
                     break
-                output.write(chunk)
+                try:
+                    output.write(chunk)
+                except OSError as error:
+                    raise DownloadStorageError(str(error)) from error
                 download_obj.current_bytes += len(chunk)
                 elapsed = time.monotonic() - last_time
                 if elapsed >= 0.25:
@@ -790,70 +879,158 @@ async def download_file_chunked(client, download_obj, part_path, state):
                     last_bytes = download_obj.current_bytes
                 if download_obj.speed > 0 and download_obj.expected_size:
                     download_obj.eta = max(0, (download_obj.expected_size - download_obj.current_bytes) / download_obj.speed)
-                recompute_transfer_state(state)
                 if download_obj.expected_size and download_obj.current_bytes >= download_obj.expected_size:
                     break
                 await asyncio.sleep(0)
     finally:
         close = getattr(stream, "aclose", None) or getattr(stream, "close", None)
         if close:
-            await close()
+            result = close()
+            if inspect.isawaitable(result):
+                await result
     return part_path
 
 
-async def process_single_download(worker_id, client, item, state, destination, manifest, manifest_lock, reserved_paths=None):
+async def refresh_download_message(client, chat, item):
+    """Fetch a fresh media reference after Telegram expires the old one."""
+    if hasattr(client, "refresh_message"):
+        message = await client.refresh_message(chat, item.message_id)
+    else:
+        message = await client.get_messages(chat, ids=item.message_id)
+    if message is None or not message_has_media(message):
+        raise RuntimeError("A mensagem original nao esta mais disponivel no Telegram.")
+    item.message = message
+    return message
+
+
+async def process_single_download(
+    worker_id, client, item, state, destination, manifest, manifest_lock,
+    reserved_paths=None, chat=None,
+):
     part_path = Path(str(item.target) + ".part")
     state["active"][worker_id] = {"obj": item}
     add_log(state, "INFO", f"Iniciando {item.filename}")
     try:
-        for attempt in range(1, MAX_DOWNLOAD_RETRIES + 1):
+        attempt = 0
+        transient_attempt = 0
+        reference_refreshes = 0
+        while True:
             await _wait_ready(item, state)
             try:
                 await download_file_chunked(client, item, part_path, state)
                 await _wait_ready(item, state)
                 if not verify_download(part_path, item.expected_size):
-                    raise OSError("O arquivo recebido nao passou na verificacao de tamanho.")
-                os.replace(part_path, item.target)
+                    raise DownloadIntegrityError(
+                        "O arquivo recebido nao passou na verificacao de tamanho."
+                    )
+                try:
+                    os.replace(part_path, item.target)
+                except OSError as error:
+                    raise DownloadStorageError(str(error)) from error
                 item.current_bytes = get_file_size(item.target) or 0
                 # A single canonical chat key is used for both scan and completion.
                 async with manifest_lock:
-                    manifest[item.chat_info["id"]][str(item.message.id)].update(
+                    manifest[item.chat_info["id"]][str(item.message_id)].update(
                         expected_size=item.current_bytes, status="complete",
                     )
-                    manifest[item.chat_info["id"]][str(item.message.id)].pop("last_error", None)
-                    save_manifest(destination, manifest)
+                    manifest[item.chat_info["id"]][str(item.message_id)].pop("last_error", None)
+                    try:
+                        save_manifest(destination, manifest)
+                    except OSError as error:
+                        # The verified target is already in place. A later scan
+                        # repairs the manifest from its exact size, so never
+                        # download the same file again only because this
+                        # checkpoint failed.
+                        add_log(
+                            state, "WARN",
+                            f"{item.filename}: arquivo concluido, mas o manifesto "
+                            f"nao foi atualizado ({type(error).__name__}).",
+                        )
                 item.status = "complete"
                 item.completed_at = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 item.log_entry.update(status="BAIXADO", size=item.current_bytes, reason="Download concluido e verificado.")
-                state["downloaded_files"].append({
-                    "index": item.index, "name": item.filename, "size": item.current_bytes, "path": str(item.target),
-                })
                 state["categories"][item.category] += 1
                 add_recent(state, item.index, item.filename, "BAIXADO")
                 add_log(state, "OK", f"{item.filename} concluido")
                 return
             except (DownloadRemoved, DownloadStopped, asyncio.CancelledError):
                 raise
+            except FileReferenceExpiredError:
+                reference_refreshes += 1
+                item.speed = 0
+                item.eta = None
+                if reference_refreshes > MAX_FILE_REFERENCE_REFRESHES:
+                    raise RuntimeError(
+                        "A referencia do arquivo continuou expirada apos ser renovada."
+                    ) from None
+                if chat is None:
+                    raise RuntimeError(
+                        "A referencia do arquivo expirou e o chat de origem nao esta disponivel."
+                    ) from None
+                add_log(
+                    state, "WARN",
+                    f"{item.filename}: referencia expirada; renovando no Telegram "
+                    f"({reference_refreshes}/{MAX_FILE_REFERENCE_REFRESHES}).",
+                )
+                await refresh_download_message(client, chat, item)
+                continue
             except FloodWaitError as error:
                 item.speed = 0
+                item.eta = None
                 if item.removed:
                     raise DownloadRemoved()
                 if state.get("stop"):
                     raise DownloadStopped()
-                discard_partial_download(part_path, item)
-                recompute_transfer_state(state)
                 add_log(state, "WARN", f"Limite do Telegram: aguardando {error.seconds}s para {item.filename}.")
-                if attempt == MAX_DOWNLOAD_RETRIES:
-                    raise RuntimeError("Limite de espera do Telegram atingido.") from None
                 await _wait_retry(error.seconds, item, state)
+                continue
+            except DownloadStorageError as error:
+                raise RuntimeError(
+                    f"Falha de armazenamento; verifique se o disco continua "
+                    f"montado e gravavel. Parcial preservado ({error})."
+                ) from error
+            except (asyncio.TimeoutError, TimeoutError, ConnectionError, OSError) as error:
+                if isinstance(error, DownloadIntegrityError):
+                    attempt += 1
+                    discard_partial_download(part_path, item)
+                    if attempt >= MAX_DOWNLOAD_RETRIES:
+                        raise
+                    add_log(
+                        state, "WARN",
+                        f"{item.filename}: verificacao falhou; reiniciando do zero "
+                        f"({attempt}/{MAX_DOWNLOAD_RETRIES}).",
+                    )
+                    await _wait_retry(RETRY_BACKOFF_SECONDS, item, state)
+                    continue
+                transient_attempt += 1
+                item.speed = 0
+                item.eta = None
+                item.current_bytes = get_file_size(part_path) or 0
+                if transient_attempt > MAX_TRANSIENT_RETRIES:
+                    raise RuntimeError(
+                        f"Conexao sem progresso apos {MAX_TRANSIENT_RETRIES} tentativas; "
+                        "o parcial foi preservado."
+                    ) from error
+                delay = min(
+                    MAX_RETRY_BACKOFF_SECONDS,
+                    RETRY_BACKOFF_SECONDS * 2 ** min(transient_attempt - 1, 5),
+                )
+                add_log(
+                    state, "WARN",
+                    f"{item.filename}: conexao interrompida ({type(error).__name__}); "
+                    f"retomando em {delay}s a partir de {format_bytes(item.current_bytes)} "
+                    f"({transient_attempt}/{MAX_TRANSIENT_RETRIES}).",
+                )
+                await _wait_retry(delay, item, state)
+                continue
             except Exception as error:
                 if item.removed:
                     raise DownloadRemoved()
                 if state.get("stop"):
                     raise DownloadStopped()
+                attempt += 1
                 discard_partial_download(part_path, item)
-                recompute_transfer_state(state)
-                if attempt == MAX_DOWNLOAD_RETRIES:
+                if attempt >= MAX_DOWNLOAD_RETRIES:
                     raise
                 item.speed = 0
                 add_log(
@@ -879,7 +1056,7 @@ async def process_single_download(worker_id, client, item, state, destination, m
         try:
             async with manifest_lock:
                 chat_manifest = manifest.get(item.chat_info["id"], {})
-                entry = chat_manifest.get(str(item.message.id)) if isinstance(chat_manifest, dict) else None
+                entry = chat_manifest.get(str(item.message_id)) if isinstance(chat_manifest, dict) else None
                 if isinstance(entry, dict):
                     entry.update(status="error", last_error=item.error)
                     save_manifest(destination, manifest)
@@ -889,13 +1066,16 @@ async def process_single_download(worker_id, client, item, state, destination, m
                 f"{item.filename}: nao foi possivel registrar o erro "
                 f"({type(manifest_error).__name__}).",
             )
-        state["failed_files"].append({"index": item.index, "name": item.filename, "reason": item.error})
         add_recent(state, item.index, item.filename, "ERRO", "!")
         add_log(state, "ERR", f"{item.filename}: {item.error}")
     finally:
         item.speed = 0
         item.eta = None
         state["active"].pop(worker_id, None)
+        if item.status in TERMINAL_STATUSES:
+            # A full Telegram Message may carry captions, entities and previews.
+            # Keep only the stable ID after completion to bound long-run memory.
+            item.message = None
         recompute_transfer_state(state)
 
 
@@ -903,7 +1083,7 @@ def _execution_stats(state):
     return {
         "total": state["total_files"], "downloaded": state["completed"],
         "skipped": state["skipped"], "errors": state["errors"], "removed": state["removed"],
-        "incomplete": len(state["incomplete_files"]), "bytes": state["_completed_bytes"],
+        "incomplete": state["incomplete"], "bytes": state["_completed_bytes"],
     }
 
 
@@ -919,8 +1099,7 @@ async def download_messages(client, chat, destination, state):
             "global_total_bytes", "_completed_bytes", "speed", "peak_speed", "eta",
             "catalog_total_files", "catalog_total_bytes", "catalog_complete", "discovered_files",
             "active", "downloads", "pending_count", "pending_preview", "categories",
-            "failed_files", "skipped_files", "downloaded_files", "removed_files",
-            "incomplete_files", "recent", "log_entries", "log_path",
+            "incomplete", "recent", "log_entries", "log_path", "status_counts",
         ):
             state[key] = fresh[key]
         chat_info = get_chat_identity(chat)
@@ -984,6 +1163,7 @@ async def download_messages(client, chat, destination, state):
                             return
                         await process_single_download(
                             worker_id, client, item, state, destination, manifest, manifest_lock,
+                            chat=chat,
                         )
                     finally:
                         queue.task_done()
@@ -1037,25 +1217,15 @@ async def download_messages(client, chat, destination, state):
                     item.completed_at = datetime.fromtimestamp(target.stat().st_mtime).strftime("%d/%m/%Y %H:%M:%S")
                     item.log_entry.update(status="PULADO - JA EXISTIA", size=item.current_bytes, reason="Arquivo completo encontrado.")
                     state["categories"][category] += 1
-                    state["skipped_files"].append({
-                        "index": index, "name": item.filename, "size": item.current_bytes,
-                        "expected_size": known_size, "path": str(target),
-                    })
                     entry.update(status="complete", expected_size=item.current_bytes)
                     add_recent(state, index, item.filename, "JA EXISTE")
                     add_log(state, "INFO", f"{item.filename} ja existe (pulado)")
+                    item.message = None
                 else:
                     if existing_file_status(target, expected_size) == "incomplete":
-                        existing_size = get_file_size(target) or 0
-                        state["incomplete_files"].append({
-                            "index": index, "name": item.filename, "existing_size": existing_size,
-                            "expected_size": expected_size, "path": str(target),
-                        })
+                        state["incomplete"] += 1
                         item.log_entry["reason"] = "Arquivo existente incompleto; sera substituido depois da verificacao."
                         add_log(state, "WARN", f"{item.filename} estava incompleto.")
-                    if entry.get("status") == "error":
-                        discard_partial_download(Path(str(target) + ".part"))
-                        add_log(state, "WARN", f"{item.filename}: erro anterior; nova tentativa desde o inicio.")
                     partial_size = get_file_size(Path(str(target) + ".part")) or 0
                     item.current_bytes = min(partial_size, expected_size) if expected_size else partial_size
                     # A fila limitada cria backpressure: o histórico não ocupa

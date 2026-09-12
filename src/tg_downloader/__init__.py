@@ -1,3 +1,3 @@
 """TG Downloader: an interactive Telegram download manager."""
 
-__version__ = "7.0.3"
+__version__ = "7.1.0"

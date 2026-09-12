@@ -9,10 +9,11 @@ import platform
 import sys
 
 from . import __version__
+from .diagnostics import config_dir
 
 
 def doctor() -> int:
-    config_dir = Path.home() / ".config" / "telegram-downloader"
+    local_dir = config_dir()
     print(f"TG Downloader {__version__}")
     print(f"Python: {platform.python_version()}")
     print(f"Interpretador: {sys.executable}")
@@ -26,10 +27,12 @@ def doctor() -> int:
             healthy = False
         print(f"{name}: {version}")
     for label, path in (
-        ("Configuracao", config_dir / "config.json"),
-        ("Sessao", config_dir / "sessions" / "session_string"),
+        ("Configuracao", local_dir / "config.json"),
+        ("Sessao", local_dir / "sessions" / "session_string"),
     ):
         print(f"{label}: {path} ({'presente' if path.is_file() else 'ausente'})")
+    print(f"Log diagnostico: {local_dir / 'diagnostic.log'}")
+    print(f"Servico compartilhado: {local_dir / 'broker.sock'}")
     print("Diagnostico local; nenhuma conexao com Telegram foi realizada.")
     return 0 if healthy else 1
 
@@ -60,4 +63,3 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         return 130
     return 0
-

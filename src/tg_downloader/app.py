@@ -18,8 +18,11 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Input, Static, Tab, Tabs
 
+from . import __version__
 from . import engine
-from .auth import AuthCancelled, connect
+from .auth import AuthCancelled
+from .broker import shared_client
+from .diagnostics import logger
 from .dialogs import ConfirmScreen, MessageScreen, NewDownloadScreen, PromptScreen, SettingsScreen
 from .widgets import BLUE, CYAN, GREEN, MUTED, PINK, RED, WHITE, YELLOW
 from .widgets import FileTable, FocusPanel, TransferGraph, gradient, meter
@@ -242,7 +245,7 @@ class DownloaderApp(App):
                 item.status = "downloading"
                 base = 42.6 if item.index == 1 else 2.3
                 item.speed = base * (0.85 + .15 * math.sin(self.tick_count / 3 + item.index)) * 1024 ** 2
-                item.current_bytes = min(item.expected_size, item.current_bytes + int(item.speed / 4))
+                item.current_bytes = min(item.expected_size, item.current_bytes + int(item.speed))
                 item.eta = (item.expected_size - item.current_bytes) / max(1, item.speed)
                 if item.current_bytes >= item.expected_size:
                     item.status, item.speed = "complete", 0
@@ -265,6 +268,15 @@ class DownloaderApp(App):
             return
         if self.demo:
             self._advance_demo()
+        if (
+            self.client
+            and getattr(self.client, "heartbeat", None)
+            and self.client.heartbeat.done()
+            and self.state["connected"]
+        ):
+            self.state.update(connected=False, phase_label="SERVICO DESCONECTADO")
+            self.connection_error = "O servico compartilhado parou; pressione R para reconectar."
+            engine.add_log(self.state, "ERR", self.connection_error)
         engine.recompute_transfer_state(self.state)
         now = time.monotonic()
         if now - self.last_sample >= 1:
@@ -289,7 +301,7 @@ class DownloaderApp(App):
         self._update_files()
         self.query_one("#details", FocusPanel).update(self._detail_text())
         self.query_one("#instances", FocusPanel).update(self._instance_text())
-        counts = {status: sum(self._status(item) == status for item in self.state["downloads"]) for status in STATUS}
+        counts = self.state.get("status_counts", {})
         summary = Text()
         for label, count, color in [("Baixando", counts["downloading"], GREEN),
                                     ("Fila", counts["queued"], CYAN), ("Pausados", counts["paused"], YELLOW),
@@ -301,7 +313,7 @@ class DownloaderApp(App):
 
     def _update_header(self):
         text = gradient("TG DOWNLOADER", bold=True)
-        text.append("  v7.0.3", PINK)
+        text.append(f"  v{__version__}", PINK)
         if self.size.width >= 100:
             text.append("  |  " + self.state.get("account", "")[:24], CYAN)
         status = "DEMO / DADOS SIMULADOS" if self.demo else self.state["phase_label"]
@@ -646,6 +658,7 @@ class DownloaderApp(App):
             except asyncio.CancelledError:
                 raise
             except Exception as error:
+                logger.exception("Falha na fila de download")
                 self.state["phase_label"] = "ERRO NA TRANSFERENCIA"
                 engine.add_log(self.state, "ERR", str(error))
                 message = str(error)
@@ -687,12 +700,9 @@ class DownloaderApp(App):
                     await self.client.disconnect()
                     self.client = None
                 self.state["connected"] = False
-                if interactive:
-                    self.client, concurrency = await connect(self._prompt)
-                else:
-                    # The base downloader lets Telethon manage its native retries.
-                    # An outer total timeout caused false "connection timed out" errors.
-                    self.client, concurrency = await engine.create_client()
+                self.client, concurrency = await shared_client(
+                    self._prompt if interactive else None,
+                )
                 me = await self.client.get_me()
                 self.state.update(connected=True, account=getattr(me, "first_name", "") or "Telegram",
                                   username=getattr(me, "username", "") or "", concurrency=concurrency,
@@ -701,6 +711,7 @@ class DownloaderApp(App):
             except asyncio.CancelledError:
                 raise
             except (Exception, AuthCancelled) as error:
+                logger.exception("Falha ao conectar a interface ao Telegram")
                 detail = str(error).strip()
                 self.connection_error = f"{type(error).__name__}: {detail}" if detail else type(error).__name__
                 self.state.update(connected=False, phase_label="FALHA NA CONEXAO")

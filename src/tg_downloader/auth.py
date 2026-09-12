@@ -56,7 +56,8 @@ async def connect(
     )
     client = TelegramClient(
         StringSession(session_string), api_id, api_hash,
-        sequential_updates=False,
+        sequential_updates=False, receive_updates=False, flood_sleep_threshold=0,
+        request_retries=3, connection_retries=3, raise_last_call_error=True,
     )
     try:
         await client.connect()

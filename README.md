@@ -14,16 +14,22 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 - Dashboard cyberpunk para acompanhar arquivos, velocidade, ETA e progresso.
 - Cálculo do tamanho total da coleção antes do primeiro download.
 - Volume total, volume já disponível, porcentagem e espaço restante em tempo real.
-- De 1 a 10 downloads paralelos, configuráveis pela interface.
+- De 1 a 10 downloads paralelos por fila, configuráveis pela interface.
+- Dez ou mais janelas podem compartilhar uma única conexão principal com o
+  Telegram; as transferências usam um limite global para não sobrecarregar a
+  conta, a rede ou o computador.
 - Retomada de arquivos `.part` depois de interrupções.
+- Renovação automática de referências de mídia expiradas, sem perder o parcial.
+- Watchdog de inatividade e retentativas progressivas para conexões que param de
+  entregar dados.
 - Detecção e salto de arquivos completos já presentes no destino.
 - Fila limitada para manter o consumo de memória estável em canais grandes.
 - Organização automática em Fotos, Vídeos, Músicas, Áudios, Documentos,
   Legendas, GIFs, Stickers e Outros.
 - Manifesto por destino e relatório final em texto.
 - Filtros, busca, detalhes do arquivo e controle individual da fila.
-- Suporte a várias instâncias, com bloqueio contra gravações simultâneas no
-  mesmo destino.
+- Suporte a várias instâncias, com serviço local compartilhado e bloqueio contra
+  gravações simultâneas no mesmo destino.
 - Autenticação local por `StringSession`; não existe servidor intermediário.
 - Uso completo pelo teclado e adaptação a terminais menores.
 
@@ -150,6 +156,8 @@ uma conta.
 | `~/.config/telegram-downloader/config.json` | API e concorrência |
 | `~/.config/telegram-downloader/sessions/session_string` | Sessão autenticada |
 | `~/.config/telegram-downloader/instances/` | Estado temporário das instâncias |
+| `~/.config/telegram-downloader/broker.sock` | Canal privado do serviço compartilhado |
+| `~/.config/telegram-downloader/diagnostic.log` | Diagnóstico persistente e rotativo |
 | `<destino>/.telegram_downloader_manifest.json` | Controle dos arquivos do destino |
 | `<destino>/telegram_downloader_log.txt` | Relatório da última fila concluída |
 
@@ -176,6 +184,11 @@ Observações úteis:
 - Em discos externos, confirme que a unidade continua montada e permite escrita.
 - Se uma execução for interrompida, não apague o manifesto nem os arquivos
   `.part`; eles são necessários para uma retomada eficiente.
+- Se a velocidade ficar zerada por falha de rede, o programa encerra a espera do
+  bloco após 90 segundos, preserva o `.part` e tenta retomar com espera
+  progressiva. O motivo e cada tentativa ficam em `diagnostic.log`.
+- O serviço compartilhado permanece ativo enquanto houver janelas abertas e é
+  reiniciado automaticamente se o processo local cair.
 
 ## Atualização
 
