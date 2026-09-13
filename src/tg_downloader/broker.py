@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
+import ctypes
 import fcntl
+import gc
 import inspect
 import json
 import os
@@ -18,6 +20,7 @@ import struct
 import subprocess
 import sys
 import time
+import traceback
 from types import SimpleNamespace
 
 from telethon.errors import (
@@ -33,6 +36,41 @@ from .diagnostics import logger
 MAX_FRAME = 16 * 1024 * 1024
 NETWORK_TIMEOUT = 75
 PROTOCOL = 1
+CLEANUP_INTERVAL = 30
+
+
+def release_exception_memory(error):
+    """Break traceback chains that may retain Telegram's 512 KiB chunks.
+
+    Large ``bytes`` values are not tracked by Python's cyclic-GC allocation
+    counter. A failed request can therefore keep its Future, response and
+    chunk alive through traceback frames for hours without triggering an
+    automatic collection.
+    """
+    pending = [error]
+    seen = set()
+    while pending:
+        current = pending.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        pending.extend((current.__cause__, current.__context__))
+        if current.__traceback__ is not None:
+            traceback.clear_frames(current.__traceback__)
+            current.__traceback__ = None
+        current.__cause__ = None
+        current.__context__ = None
+
+
+def release_unused_memory():
+    """Collect cycles and return free heap pages to Linux when supported."""
+    gc.collect()
+    if sys.platform.startswith("linux"):
+        with contextlib.suppress(Exception):
+            malloc_trim = ctypes.CDLL(None).malloc_trim
+            malloc_trim.argtypes = [ctypes.c_size_t]
+            malloc_trim.restype = ctypes.c_int
+            malloc_trim(0)
 
 
 def socket_path() -> Path:
@@ -127,6 +165,7 @@ class BrokerServer:
         self.handlers = set()
         self.cooldown_until = 0.0
         self.server = None
+        self.last_cleanup = time.monotonic()
 
     async def _network_limited(self, operation):
         async with self.limit:
@@ -161,23 +200,33 @@ class BrokerServer:
             if not isinstance(request, dict) or request.get("protocol") != PROTOCOL:
                 raise RuntimeError("Versao do servico local incompativel. Feche as janelas antigas.")
             await self.dispatch(request, reader, writer)
-        except (asyncio.IncompleteReadError, ConnectionError, BrokenPipeError):
-            pass
+        except (asyncio.IncompleteReadError, ConnectionError, BrokenPipeError) as error:
+            release_exception_memory(error)
+        except asyncio.CancelledError as error:
+            release_exception_memory(error)
+            raise
         except Exception as error:
-            # Do not propagate arbitrary Telegram errors containing credentials.
-            payload = {"error": type(error).__name__, "message": "Falha no servico local/Telegram."}
-            if isinstance(error, (FloodWaitError, FloodPremiumWaitError)):
-                payload["error"] = "TelegramFloodWaitError"
-                payload["seconds"] = max(1, int(error.seconds)) + 1
-                payload["message"] = "O Telegram solicitou uma pausa temporaria."
-            elif isinstance(error, FileReferenceExpiredError):
-                payload["message"] = "A referencia temporaria da midia expirou."
-            elif isinstance(error, (RuntimeError, ValueError)):
-                payload["message"] = str(error)
-            else:
-                logger.exception("Falha inesperada no broker: %s", type(error).__name__)
-            with contextlib.suppress(OSError, asyncio.TimeoutError):
-                await asyncio.wait_for(send_frame(writer, payload), 2)
+            try:
+                # Do not propagate arbitrary Telegram errors containing credentials.
+                payload = {"error": type(error).__name__, "message": "Falha no servico local/Telegram."}
+                if isinstance(error, (FloodWaitError, FloodPremiumWaitError)):
+                    payload["error"] = "TelegramFloodWaitError"
+                    payload["seconds"] = max(1, int(error.seconds)) + 1
+                    payload["message"] = "O Telegram solicitou uma pausa temporaria."
+                elif isinstance(error, FileReferenceExpiredError):
+                    payload["message"] = "A referencia temporaria da midia expirou."
+                elif isinstance(error, (asyncio.TimeoutError, OSError, ConnectionError)):
+                    # These failures are retried by the dashboard. A full traceback
+                    # per 512 KiB request only floods the log and retains large frames.
+                    logger.warning("Falha transitoria no broker: %s", type(error).__name__)
+                elif isinstance(error, (RuntimeError, ValueError)):
+                    payload["message"] = str(error)
+                else:
+                    logger.exception("Falha inesperada no broker: %s", type(error).__name__)
+                with contextlib.suppress(OSError, asyncio.TimeoutError):
+                    await asyncio.wait_for(send_frame(writer, payload), 2)
+            finally:
+                release_exception_memory(error)
         finally:
             await close_writer(writer)
             self.handlers.discard(task)
@@ -267,6 +316,10 @@ class BrokerServer:
             async with self.server:
                 while True:
                     await asyncio.sleep(1)
+                    now = time.monotonic()
+                    if now - self.last_cleanup >= CLEANUP_INTERVAL:
+                        release_unused_memory()
+                        self.last_cleanup = now
                     if not self.handlers and time.monotonic() - self.last_activity >= self.idle_seconds:
                         return
         finally:

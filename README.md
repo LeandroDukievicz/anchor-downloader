@@ -26,6 +26,8 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
   Premium, coordenada entre todas as janelas.
 - Detecção e salto de arquivos completos já presentes no destino.
 - Fila limitada para manter o consumo de memória estável em canais grandes.
+- Liberação periódica de buffers e tracebacks do serviço compartilhado para
+  manter a memória estável durante execuções de vários dias.
 - Organização automática em Fotos, Vídeos, Músicas, Áudios, Documentos,
   Legendas, GIFs, Stickers e Outros.
 - Manifesto por destino e relatório final em texto.
@@ -193,6 +195,8 @@ Observações úteis:
   integridade comprovada reinicia um arquivo desde o primeiro byte.
 - O serviço compartilhado permanece ativo enquanto houver janelas abertas e é
   reiniciado automaticamente se o processo local cair.
+- O serviço executa uma coleta preventiva a cada 30 segundos. Blocos já gravados
+  e ciclos de exceções transitórias são liberados sem interromper a fila.
 
 ## Atualização
 

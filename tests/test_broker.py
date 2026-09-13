@@ -1,10 +1,18 @@
 import asyncio
+import gc
+import weakref
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from telethon.errors import FloodPremiumWaitError
 
-from tg_downloader.broker import BrokerClient, BrokerServer
+from tg_downloader.broker import (
+    BrokerClient,
+    BrokerServer,
+    release_exception_memory,
+    release_unused_memory,
+)
 
 
 class FakeTelegramClient:
@@ -89,3 +97,56 @@ async def test_premium_flood_wait_starts_one_shared_cooldown():
         await broker.network(throttled)
 
     assert broker.cooldown_until >= before + 4
+
+
+def test_release_exception_memory_breaks_nested_traceback_chains():
+    retained = bytearray(512 * 1024)
+    try:
+        try:
+            raise OSError("temporary")
+        except OSError as cause:
+            raise RuntimeError("wrapper") from cause
+    except RuntimeError as error:
+        cause = error.__cause__
+        assert cause is not None
+        assert error.__traceback__ is not None
+        assert cause.__traceback__ is not None
+
+        release_exception_memory(error)
+
+        assert error.__traceback__ is None
+        assert error.__cause__ is None
+        assert error.__context__ is None
+        assert cause.__traceback__ is None
+    assert len(retained) == 512 * 1024
+
+
+def test_release_unused_memory_always_runs_full_gc():
+    with patch.object(gc, "collect") as collect:
+        release_unused_memory()
+    collect.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_traceback_release_drops_a_future_with_a_large_result():
+    class Payload:
+        def __init__(self):
+            self.data = bytes(512 * 1024)
+
+    references = []
+
+    async def fail_after_response():
+        payload = Payload()
+        references.append(weakref.ref(payload))
+        response = asyncio.get_running_loop().create_future()
+        response.set_result(payload)
+        raise TimeoutError("request stalled")
+
+    try:
+        await fail_after_response()
+    except TimeoutError as error:
+        assert references[0]() is not None
+        release_exception_memory(error)
+
+    gc.collect()
+    assert references[0]() is None
