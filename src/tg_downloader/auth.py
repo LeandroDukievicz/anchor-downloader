@@ -12,7 +12,7 @@ from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
-from .engine import STRING_SESSION_FILE, load_config
+from .engine import STRING_SESSION_FILE, TELEGRAM_FLOOD_SLEEP_SECONDS, load_config
 
 
 class AuthCancelled(RuntimeError):
@@ -56,8 +56,10 @@ async def connect(
     )
     client = TelegramClient(
         StringSession(session_string), api_id, api_hash,
-        sequential_updates=False, receive_updates=False, flood_sleep_threshold=0,
-        request_retries=3, connection_retries=3, raise_last_call_error=True,
+        sequential_updates=False, receive_updates=False,
+        flood_sleep_threshold=TELEGRAM_FLOOD_SLEEP_SECONDS,
+        request_retries=12, connection_retries=10, retry_delay=2,
+        raise_last_call_error=True,
     )
     try:
         await client.connect()

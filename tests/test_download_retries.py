@@ -2,7 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
-from telethon.errors import FileReferenceExpiredError
+from telethon.errors import FileReferenceExpiredError, FloodPremiumWaitError
 from telethon.tl.types import MessageMediaPhoto, PhotoEmpty
 
 from tg_downloader import engine
@@ -73,6 +73,62 @@ async def test_network_error_resumes_partial_from_last_complete_chunk(tmp_path, 
     assert item.status == "complete"
     assert manifest["7"]["42"]["status"] == "complete"
     assert item.message is None
+
+
+@pytest.mark.asyncio
+async def test_unknown_remote_error_never_discards_a_valid_partial(tmp_path, monkeypatch):
+    monkeypatch.setattr(engine, "DOWNLOAD_CHUNK_SIZE", 4)
+    monkeypatch.setattr(engine, "RETRY_BACKOFF_SECONDS", 0)
+
+    item = make_download(tmp_path, expected_size=8)
+    part_path = tmp_path / "arquivo.bin.part"
+    state = engine.create_state(1, 1)
+    state["downloads"].append(item)
+    state["total_files"] = 1
+    manifest = {"7": {"42": {"relpath": "arquivo.bin", "status": "pending"}}}
+    client = FakeClient([
+        FailingStream([b"HEAD", RuntimeError("erro remoto desconhecido")]),
+        FailingStream([b"TAIL"]),
+    ])
+
+    await engine.process_single_download(
+        0, client, item, state, tmp_path, manifest, asyncio.Lock(),
+    )
+
+    assert client.offsets == [0, 4]
+    assert (tmp_path / "arquivo.bin").read_bytes() == b"HEADTAIL"
+    assert not part_path.exists()
+    assert item.status == "complete"
+
+
+@pytest.mark.asyncio
+async def test_premium_flood_wait_preserves_partial_and_resumes(tmp_path, monkeypatch):
+    monkeypatch.setattr(engine, "DOWNLOAD_CHUNK_SIZE", 4)
+
+    waits = []
+
+    async def no_wait(seconds, item, state):
+        waits.append(seconds)
+
+    monkeypatch.setattr(engine, "_wait_retry", no_wait)
+    item = make_download(tmp_path, expected_size=8)
+    state = engine.create_state(1, 1)
+    state["downloads"].append(item)
+    state["total_files"] = 1
+    manifest = {"7": {"42": {"relpath": "arquivo.bin", "status": "pending"}}}
+    client = FakeClient([
+        FailingStream([b"HEAD", FloodPremiumWaitError(request=None, capture=3)]),
+        FailingStream([b"TAIL"]),
+    ])
+
+    await engine.process_single_download(
+        0, client, item, state, tmp_path, manifest, asyncio.Lock(),
+    )
+
+    assert waits == [4]
+    assert client.offsets == [0, 4]
+    assert (tmp_path / "arquivo.bin").read_bytes() == b"HEADTAIL"
+    assert item.status == "complete"
 
 
 @pytest.mark.asyncio

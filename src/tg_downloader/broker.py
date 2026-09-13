@@ -20,14 +20,18 @@ import sys
 import time
 from types import SimpleNamespace
 
-from telethon.errors import FileReferenceExpiredError, FloodWaitError
+from telethon.errors import (
+    FileReferenceExpiredError,
+    FloodPremiumWaitError,
+    FloodWaitError,
+)
 from telethon.extensions import BinaryReader
 
 from . import engine
 from .diagnostics import logger
 
 MAX_FRAME = 16 * 1024 * 1024
-NETWORK_TIMEOUT = 60
+NETWORK_TIMEOUT = 75
 PROTOCOL = 1
 
 
@@ -124,18 +128,30 @@ class BrokerServer:
         self.cooldown_until = 0.0
         self.server = None
 
-    async def network(self, operation, *, history=False):
-        # Share Telegram-imposed waits across windows. Fair semaphore acquisition
-        # is per chunk, so a large file cannot occupy a slot for hours.
-        async with self.history_limit if history else self.limit:
+    async def _network_limited(self, operation):
+        async with self.limit:
             delay = self.cooldown_until - time.monotonic()
             if delay > 0:
                 await asyncio.sleep(delay)
             try:
                 return await asyncio.wait_for(operation(), NETWORK_TIMEOUT)
-            except FloodWaitError as error:
-                self.cooldown_until = max(self.cooldown_until, time.monotonic() + error.seconds)
+            except (FloodWaitError, FloodPremiumWaitError) as error:
+                # One extra second prevents every dashboard from retrying at the
+                # exact boundary reported by Telegram.
+                wait_seconds = max(1, int(error.seconds)) + 1
+                self.cooldown_until = max(
+                    self.cooldown_until,
+                    time.monotonic() + wait_seconds,
+                )
                 raise
+
+    async def network(self, operation, *, history=False):
+        # Every Telegram request uses the global limiter. History requests also
+        # use a single lane, but no longer bypass the download limit.
+        if history:
+            async with self.history_limit:
+                return await self._network_limited(operation)
+        return await self._network_limited(operation)
 
     async def handle(self, reader, writer):
         task = asyncio.current_task()
@@ -150,8 +166,10 @@ class BrokerServer:
         except Exception as error:
             # Do not propagate arbitrary Telegram errors containing credentials.
             payload = {"error": type(error).__name__, "message": "Falha no servico local/Telegram."}
-            if isinstance(error, FloodWaitError):
-                payload["seconds"] = error.seconds
+            if isinstance(error, (FloodWaitError, FloodPremiumWaitError)):
+                payload["error"] = "TelegramFloodWaitError"
+                payload["seconds"] = max(1, int(error.seconds)) + 1
+                payload["message"] = "O Telegram solicitou uma pausa temporaria."
             elif isinstance(error, FileReferenceExpiredError):
                 payload["message"] = "A referencia temporaria da midia expirou."
             elif isinstance(error, (RuntimeError, ValueError)):
@@ -291,7 +309,9 @@ class BrokerClient:
     async def response(reader):
         value = await asyncio.wait_for(read_frame(reader), 3700)
         if isinstance(value, dict) and "error" in value:
-            if value["error"] == "FloodWaitError":
+            if value["error"] in {
+                "FloodWaitError", "FloodPremiumWaitError", "TelegramFloodWaitError",
+            }:
                 raise FloodWaitError(request=None, capture=int(value.get("seconds", 1)))
             if value["error"] == "FileReferenceExpiredError":
                 raise FileReferenceExpiredError(request=None)

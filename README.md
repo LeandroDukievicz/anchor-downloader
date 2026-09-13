@@ -22,6 +22,8 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 - Renovação automática de referências de mídia expiradas, sem perder o parcial.
 - Watchdog de inatividade e retentativas progressivas para conexões que param de
   entregar dados.
+- Espera automática para limites comuns e `FloodPremiumWait` de contas não
+  Premium, coordenada entre todas as janelas.
 - Detecção e salto de arquivos completos já presentes no destino.
 - Fila limitada para manter o consumo de memória estável em canais grandes.
 - Organização automática em Fotos, Vídeos, Músicas, Áudios, Documentos,
@@ -187,6 +189,8 @@ Observações úteis:
 - Se a velocidade ficar zerada por falha de rede, o programa encerra a espera do
   bloco após 90 segundos, preserva o `.part` e tenta retomar com espera
   progressiva. O motivo e cada tentativa ficam em `diagnostic.log`.
+- Erros remotos desconhecidos também preservam o `.part`; somente uma falha de
+  integridade comprovada reinicia um arquivo desde o primeiro byte.
 - O serviço compartilhado permanece ativo enquanto houver janelas abertas e é
   reiniciado automaticamente se o processo local cair.
 

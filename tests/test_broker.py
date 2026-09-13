@@ -2,6 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+from telethon.errors import FloodPremiumWaitError
 
 from tg_downloader.broker import BrokerClient, BrokerServer
 
@@ -56,3 +57,35 @@ async def test_global_transfer_limit_is_shared_between_windows():
 
     await asyncio.gather(*(broker.network(operation) for _ in range(20)))
     assert peak == 4
+
+
+@pytest.mark.asyncio
+async def test_history_requests_do_not_bypass_global_limit():
+    broker = BrokerServer(client=FakeTelegramClient(), global_limit=2)
+    active = 0
+    peak = 0
+
+    async def operation():
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+
+    calls = [broker.network(operation, history=index % 2 == 0) for index in range(20)]
+    await asyncio.gather(*calls)
+    assert peak == 2
+
+
+@pytest.mark.asyncio
+async def test_premium_flood_wait_starts_one_shared_cooldown():
+    broker = BrokerServer(client=FakeTelegramClient())
+
+    async def throttled():
+        raise FloodPremiumWaitError(request=None, capture=3)
+
+    before = asyncio.get_running_loop().time()
+    with pytest.raises(FloodPremiumWaitError):
+        await broker.network(throttled)
+
+    assert broker.cooldown_until >= before + 4

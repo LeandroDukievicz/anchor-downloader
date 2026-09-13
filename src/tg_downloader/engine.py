@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from telethon import TelegramClient
 from telethon.errors import (
     FileReferenceExpiredError,
+    FloodPremiumWaitError,
     FloodWaitError,
     InviteHashExpiredError,
     InviteHashInvalidError,
@@ -50,6 +51,7 @@ MAX_FILE_REFERENCE_REFRESHES = 3
 RETRY_BACKOFF_SECONDS = 2
 MAX_RETRY_BACKOFF_SECONDS = 60
 CHUNK_TIMEOUT_SECONDS = 90
+TELEGRAM_FLOOD_SLEEP_SECONDS = 60
 DEFAULT_CONCURRENT_DOWNLOADS = 4
 DOWNLOAD_CHUNK_SIZE = 512 * 1024
 SPEED_HISTORY_LEN = 120
@@ -109,8 +111,9 @@ async def create_client():
         raise RuntimeError("A StringSession salva e invalida.") from None
     client = TelegramClient(
         session, api_id, api_hash, sequential_updates=False,
-        receive_updates=False, flood_sleep_threshold=0,
-        request_retries=3, connection_retries=3,
+        receive_updates=False,
+        flood_sleep_threshold=TELEGRAM_FLOOD_SLEEP_SECONDS,
+        request_retries=12, connection_retries=10, retry_delay=2,
         raise_last_call_error=True,
     )
     try:
@@ -916,6 +919,7 @@ async def process_single_download(
         reference_refreshes = 0
         while True:
             await _wait_ready(item, state)
+            attempt_start_bytes = get_file_size(part_path) or 0
             try:
                 await download_file_chunked(client, item, part_path, state)
                 await _wait_ready(item, state)
@@ -956,9 +960,13 @@ async def process_single_download(
             except (DownloadRemoved, DownloadStopped, asyncio.CancelledError):
                 raise
             except FileReferenceExpiredError:
+                current_bytes = get_file_size(part_path) or 0
+                if current_bytes > attempt_start_bytes:
+                    reference_refreshes = 0
                 reference_refreshes += 1
                 item.speed = 0
                 item.eta = None
+                item.current_bytes = current_bytes
                 if reference_refreshes > MAX_FILE_REFERENCE_REFRESHES:
                     raise RuntimeError(
                         "A referencia do arquivo continuou expirada apos ser renovada."
@@ -974,15 +982,20 @@ async def process_single_download(
                 )
                 await refresh_download_message(client, chat, item)
                 continue
-            except FloodWaitError as error:
+            except (FloodWaitError, FloodPremiumWaitError) as error:
                 item.speed = 0
                 item.eta = None
                 if item.removed:
                     raise DownloadRemoved()
                 if state.get("stop"):
                     raise DownloadStopped()
-                add_log(state, "WARN", f"Limite do Telegram: aguardando {error.seconds}s para {item.filename}.")
-                await _wait_retry(error.seconds, item, state)
+                wait_seconds = max(1, int(error.seconds)) + 1
+                add_log(
+                    state, "WARN",
+                    f"Limite do Telegram: aguardando {wait_seconds}s para "
+                    f"{item.filename}; parcial preservado.",
+                )
+                await _wait_retry(wait_seconds, item, state)
                 continue
             except DownloadStorageError as error:
                 raise RuntimeError(
@@ -1002,10 +1015,12 @@ async def process_single_download(
                     )
                     await _wait_retry(RETRY_BACKOFF_SECONDS, item, state)
                     continue
-                transient_attempt += 1
                 item.speed = 0
                 item.eta = None
                 item.current_bytes = get_file_size(part_path) or 0
+                if item.current_bytes > attempt_start_bytes:
+                    transient_attempt = 0
+                transient_attempt += 1
                 if transient_attempt > MAX_TRANSIENT_RETRIES:
                     raise RuntimeError(
                         f"Conexao sem progresso apos {MAX_TRANSIENT_RETRIES} tentativas; "
@@ -1028,15 +1043,19 @@ async def process_single_download(
                     raise DownloadRemoved()
                 if state.get("stop"):
                     raise DownloadStopped()
+                item.current_bytes = get_file_size(part_path) or 0
+                if item.current_bytes > attempt_start_bytes:
+                    attempt = 0
                 attempt += 1
-                discard_partial_download(part_path, item)
                 if attempt >= MAX_DOWNLOAD_RETRIES:
                     raise
                 item.speed = 0
+                item.eta = None
                 add_log(
                     state, "WARN",
                     f"{item.filename}: tentativa {attempt}/{MAX_DOWNLOAD_RETRIES} "
-                    f"({type(error).__name__}); reiniciando o arquivo inteiro.",
+                    f"({type(error).__name__}); retomando de "
+                    f"{format_bytes(item.current_bytes)} sem apagar o parcial.",
                 )
                 await _wait_retry(RETRY_BACKOFF_SECONDS, item, state)
     except DownloadRemoved:
