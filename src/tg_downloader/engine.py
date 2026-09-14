@@ -50,9 +50,10 @@ MAX_TRANSIENT_RETRIES = 12
 MAX_FILE_REFERENCE_REFRESHES = 3
 RETRY_BACKOFF_SECONDS = 2
 MAX_RETRY_BACKOFF_SECONDS = 60
-CHUNK_TIMEOUT_SECONDS = 90
+CHUNK_TIMEOUT_SECONDS = 180
 TELEGRAM_FLOOD_SLEEP_SECONDS = 60
 DEFAULT_CONCURRENT_DOWNLOADS = 4
+MAX_CONCURRENT_DOWNLOADS = 4
 DOWNLOAD_CHUNK_SIZE = 512 * 1024
 SPEED_HISTORY_LEN = 120
 STATE_FILE_MAX_AGE = 8
@@ -87,7 +88,13 @@ def load_config():
     if api_id <= 0 or not isinstance(api_hash, str) or not api_hash.strip():
         raise RuntimeError("Preencha api_id e api_hash em config.json.")
     try:
-        concurrency = max(1, min(10, int(config.get("concurrent_downloads", DEFAULT_CONCURRENT_DOWNLOADS))))
+        concurrency = max(
+            1,
+            min(
+                MAX_CONCURRENT_DOWNLOADS,
+                int(config.get("concurrent_downloads", DEFAULT_CONCURRENT_DOWNLOADS)),
+            ),
+        )
     except (ValueError, TypeError):
         concurrency = DEFAULT_CONCURRENT_DOWNLOADS
     return api_id, api_hash.strip(), concurrency
@@ -219,7 +226,8 @@ def add_recent(state, index, name, status, marker="+"):
 
 def create_state(slot, concurrency):
     return {
-        "slot": slot, "concurrency": max(1, min(10, int(concurrency))),
+        "slot": slot,
+        "concurrency": max(1, min(MAX_CONCURRENT_DOWNLOADS, int(concurrency))),
         "connected": False, "account": "Usuario", "username": "",
         "chat_title": "", "chat_username": "", "destination": "",
         "phase_label": "PRONTO", "phase": "startup", "total_files": 0,

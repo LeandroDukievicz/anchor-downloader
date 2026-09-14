@@ -37,6 +37,12 @@ def test_sizing_volume_survives_dashboard_recomputation():
     assert state["global_total_bytes"] == 12_345
 
 
+def test_requested_concurrency_is_capped_at_global_transfer_limit():
+    state = engine.create_state(1, 10)
+
+    assert state["concurrency"] == engine.MAX_CONCURRENT_DOWNLOADS == 4
+
+
 class StreamingClient:
     def __init__(self, state):
         self.state = state

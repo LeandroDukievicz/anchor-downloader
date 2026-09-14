@@ -24,7 +24,7 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
 
-from .engine import CONFIG_FILE
+from .engine import CONFIG_FILE, MAX_CONCURRENT_DOWNLOADS
 
 
 def _read_config() -> dict[str, Any]:
@@ -66,9 +66,13 @@ def _concurrency(value: str) -> int:
     try:
         number = int(value)
     except ValueError as exc:
-        raise ValueError("Downloads simultaneos: informe um numero de 1 a 10.") from exc
-    if not 1 <= number <= 10:
-        raise ValueError("Downloads simultaneos: informe um numero de 1 a 10.")
+        raise ValueError(
+            f"Downloads simultaneos: informe um numero de 1 a {MAX_CONCURRENT_DOWNLOADS}."
+        ) from exc
+    if not 1 <= number <= MAX_CONCURRENT_DOWNLOADS:
+        raise ValueError(
+            f"Downloads simultaneos: informe um numero de 1 a {MAX_CONCURRENT_DOWNLOADS}."
+        )
     return number
 
 

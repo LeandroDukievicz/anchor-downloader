@@ -19,7 +19,7 @@ def doctor() -> int:
     print(f"Interpretador: {sys.executable}")
     print(f"Pacote: {Path(__file__).resolve().parent}")
     healthy = True
-    for name in ("textual", "telethon"):
+    for name in ("textual", "telethon", "cryptg"):
         try:
             version = metadata.version(name)
         except metadata.PackageNotFoundError:

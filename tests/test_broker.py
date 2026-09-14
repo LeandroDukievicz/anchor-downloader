@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 from telethon.errors import FloodPremiumWaitError
+from telethon.tl.types import InputPeerChannel
 
 from tg_downloader.broker import (
     BrokerClient,
@@ -19,6 +20,7 @@ class FakeTelegramClient:
     def __init__(self):
         self.get_me_calls = 0
         self.disconnected = False
+        self.connect_calls = 0
 
     def is_connected(self):
         return True
@@ -29,6 +31,9 @@ class FakeTelegramClient:
 
     async def disconnect(self):
         self.disconnected = True
+
+    async def connect(self):
+        self.connect_calls += 1
 
 
 @pytest.mark.asyncio
@@ -99,6 +104,24 @@ async def test_premium_flood_wait_starts_one_shared_cooldown():
     assert broker.cooldown_until >= before + 4
 
 
+@pytest.mark.asyncio
+async def test_repeated_network_timeouts_renew_the_telegram_transport(monkeypatch):
+    telegram = FakeTelegramClient()
+    broker = BrokerServer(client=telegram)
+
+    async def stalled():
+        raise asyncio.TimeoutError()
+
+    monkeypatch.setattr("tg_downloader.broker.TIMEOUTS_BEFORE_CONNECTION_RESET", 2)
+    for _ in range(2):
+        with pytest.raises(asyncio.TimeoutError):
+            await broker.network(stalled)
+
+    assert telegram.disconnected is True
+    assert telegram.connect_calls == 1
+    assert broker.consecutive_timeouts == 0
+
+
 def test_release_exception_memory_breaks_nested_traceback_chains():
     retained = bytearray(512 * 1024)
     try:
@@ -150,3 +173,36 @@ async def test_traceback_release_drops_a_future_with_a_large_result():
 
     gc.collect()
     assert references[0]() is None
+
+
+@pytest.mark.asyncio
+async def test_history_stream_resumes_after_local_connection_reset(tmp_path, monkeypatch):
+    client = BrokerClient(tmp_path / "broker.sock")
+    calls = []
+
+    async def fake_iterate(method, **payload):
+        calls.append((method, payload["min_id"]))
+        if len(calls) == 1:
+            yield SimpleNamespace(id=10)
+            raise ConnectionResetError("socket reiniciado")
+        # A duplicate is filtered defensively even though a real broker uses
+        # min_id and would normally start directly at message 11.
+        yield SimpleNamespace(id=10)
+        yield SimpleNamespace(id=11)
+
+    async def no_wait(_seconds):
+        return None
+
+    monkeypatch.setattr(client, "iterate", fake_iterate)
+    monkeypatch.setattr(asyncio, "sleep", no_wait)
+
+    messages = [
+        message.id
+        async for message in client.iter_messages(
+            InputPeerChannel(channel_id=99, access_hash=0),
+            reverse=True,
+        )
+    ]
+
+    assert messages == [10, 11]
+    assert calls == [("messages", 0), ("messages", 10)]

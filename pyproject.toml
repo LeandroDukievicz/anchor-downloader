@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tg-downloader"
-version = "7.1.2"
+version = "7.2.0"
 description = "Downloader de arquivos do Telegram com painel interativo no terminal"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "textual>=8.2.8,<9",
     "telethon>=1.44,<1.45",
+    "cryptg>=0.6,<1",
 ]
 
 [project.optional-dependencies]

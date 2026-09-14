@@ -14,7 +14,9 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 - Dashboard cyberpunk para acompanhar arquivos, velocidade, ETA e progresso.
 - Cálculo do tamanho total da coleção antes do primeiro download.
 - Volume total, volume já disponível, porcentagem e espaço restante em tempo real.
-- De 1 a 10 downloads paralelos por fila, configuráveis pela interface.
+- De 1 a 4 downloads paralelos por fila, configuráveis pela interface. O limite
+  evita abrir fluxos que o serviço global não conseguiria atender e reduz a
+  incidência de bloqueios temporários do Telegram.
 - Dez ou mais janelas podem compartilhar uma única conexão principal com o
   Telegram; as transferências usam um limite global para não sobrecarregar a
   conta, a rede ou o computador.
@@ -22,10 +24,16 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 - Renovação automática de referências de mídia expiradas, sem perder o parcial.
 - Watchdog de inatividade e retentativas progressivas para conexões que param de
   entregar dados.
+- Renovação automática do transporte MTProto quando várias requisições seguidas
+  ficam sem resposta, coordenada para não criar uma tempestade de reconexões.
+- Retomada da varredura exatamente após a última mensagem se o serviço local for
+  reiniciado ou o socket for interrompido durante uma fila longa.
 - Espera automática para limites comuns e `FloodPremiumWait` de contas não
   Premium, coordenada entre todas as janelas.
 - Detecção e salto de arquivos completos já presentes no destino.
 - Fila limitada para manter o consumo de memória estável em canais grandes.
+- Criptografia nativa com `cryptg`, evitando que a descriptografia em Python se
+  torne um gargalo de transferência.
 - Liberação periódica de buffers e tracebacks do serviço compartilhado para
   manter a memória estável durante execuções de vários dias.
 - Organização automática em Fotos, Vídeos, Músicas, Áudios, Documentos,
@@ -189,7 +197,7 @@ Observações úteis:
 - Se uma execução for interrompida, não apague o manifesto nem os arquivos
   `.part`; eles são necessários para uma retomada eficiente.
 - Se a velocidade ficar zerada por falha de rede, o programa encerra a espera do
-  bloco após 90 segundos, preserva o `.part` e tenta retomar com espera
+  bloco após 180 segundos, preserva o `.part` e tenta retomar com espera
   progressiva. O motivo e cada tentativa ficam em `diagnostic.log`.
 - Erros remotos desconhecidos também preservam o `.part`; somente uma falha de
   integridade comprovada reinicia um arquivo desde o primeiro byte.

@@ -34,9 +34,13 @@ from . import engine
 from .diagnostics import logger
 
 MAX_FRAME = 16 * 1024 * 1024
-NETWORK_TIMEOUT = 75
+NETWORK_TIMEOUT = 150
 PROTOCOL = 1
 CLEANUP_INTERVAL = 30
+STREAM_RECONNECT_RETRIES = 20
+MAX_STREAM_RETRY_DELAY = 30
+TIMEOUTS_BEFORE_CONNECTION_RESET = 3
+MIN_CONNECTION_RESET_INTERVAL = 30
 
 
 def release_exception_memory(error):
@@ -155,17 +159,45 @@ async def ensure_broker(path: Path | None = None) -> None:
 
 
 class BrokerServer:
-    def __init__(self, *, client=None, global_limit=4, idle_seconds=30):
+    def __init__(
+        self,
+        *,
+        client=None,
+        global_limit=engine.MAX_CONCURRENT_DOWNLOADS,
+        idle_seconds=30,
+    ):
         self.client = client
         self.limit = asyncio.Semaphore(global_limit)
         self.history_limit = asyncio.Semaphore(1)
         self.connect_lock = asyncio.Lock()
+        self.recovery_lock = asyncio.Lock()
         self.idle_seconds = idle_seconds
         self.last_activity = time.monotonic()
         self.handlers = set()
         self.cooldown_until = 0.0
         self.server = None
         self.last_cleanup = time.monotonic()
+        self.consecutive_timeouts = 0
+        self.last_connection_reset = 0.0
+
+    async def _recover_stalled_connection(self):
+        """Renew one wedged MTProto connection without starting a reset storm."""
+        if self.client is None:
+            return
+        async with self.recovery_lock:
+            now = time.monotonic()
+            if now - self.last_connection_reset < MIN_CONNECTION_RESET_INTERVAL:
+                return
+            self.last_connection_reset = now
+            logger.warning(
+                "Conexao Telegram sem resposta em %s operacoes; renovando transporte MTProto",
+                self.consecutive_timeouts,
+            )
+            async with self.connect_lock:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(self.client.disconnect(), 10)
+                await asyncio.wait_for(self.client.connect(), 30)
+            self.consecutive_timeouts = 0
 
     async def _network_limited(self, operation):
         async with self.limit:
@@ -173,7 +205,14 @@ class BrokerServer:
             if delay > 0:
                 await asyncio.sleep(delay)
             try:
-                return await asyncio.wait_for(operation(), NETWORK_TIMEOUT)
+                result = await asyncio.wait_for(operation(), NETWORK_TIMEOUT)
+                self.consecutive_timeouts = 0
+                return result
+            except asyncio.TimeoutError:
+                self.consecutive_timeouts += 1
+                if self.consecutive_timeouts >= TIMEOUTS_BEFORE_CONNECTION_RESET:
+                    await self._recover_stalled_connection()
+                raise
             except (FloodWaitError, FloodPremiumWaitError) as error:
                 # One extra second prevents every dashboard from retrying at the
                 # exact boundary reported by Telegram.
@@ -283,7 +322,12 @@ class BrokerServer:
             await send_frame(writer, {"tl": encode_tl(message)})
         elif method in {"messages", "download"}:
             if method == "messages":
-                stream = self.client.iter_messages(decode_tl(request["chat"]), reverse=True).__aiter__()
+                min_id = max(0, int(request.get("min_id", 0)))
+                stream = self.client.iter_messages(
+                    decode_tl(request["chat"]),
+                    reverse=True,
+                    min_id=min_id,
+                ).__aiter__()
             else:
                 offset = int(request["offset"])
                 if offset < 0:
@@ -293,7 +337,12 @@ class BrokerServer:
                     request_size=engine.DOWNLOAD_CHUNK_SIZE,
                 ).__aiter__()
             try:
-                while await asyncio.wait_for(read_frame(reader), 3600) == {"next": True}:
+                # Backpressure may legitimately leave the history producer idle
+                # for many hours while large files occupy the bounded queue.
+                # EOF still releases this handler if the dashboard exits, so a
+                # fixed one-hour timeout only turns a healthy long run into a
+                # delayed ConnectionResetError.
+                while await read_frame(reader) == {"next": True}:
                     try:
                         value = await self.network(lambda: anext(stream), history=method == "messages")
                     except StopAsyncIteration:
@@ -435,8 +484,49 @@ class BrokerClient:
         finally:
             await self.finish(writer)
 
+    async def _iter_messages_resilient(self, chat, *, reverse=True):
+        """Resume an ascending history stream after a broker/socket restart."""
+        last_message_id = 0
+        failures = 0
+        while True:
+            try:
+                async for message in self.iterate(
+                    "messages",
+                    chat=encode_tl(chat),
+                    min_id=last_message_id,
+                ):
+                    message_id = int(getattr(message, "id", 0) or 0)
+                    if reverse and message_id and message_id <= last_message_id:
+                        continue
+                    if message_id:
+                        last_message_id = message_id
+                    failures = 0
+                    yield message
+                return
+            except (
+                OSError,
+                ConnectionError,
+                asyncio.TimeoutError,
+                asyncio.IncompleteReadError,
+            ) as error:
+                failures += 1
+                if failures > STREAM_RECONNECT_RETRIES:
+                    raise
+                delay = min(MAX_STREAM_RETRY_DELAY, 2 ** min(failures - 1, 5))
+                logger.warning(
+                    "Canal local de historico interrompido (%s); retomando apos "
+                    "a mensagem %s em %ss (%s/%s)",
+                    type(error).__name__,
+                    last_message_id,
+                    delay,
+                    failures,
+                    STREAM_RECONNECT_RETRIES,
+                )
+                release_exception_memory(error)
+                await asyncio.sleep(delay)
+
     def iter_messages(self, chat, *, reverse=True):
-        return self.iterate("messages", chat=encode_tl(chat))
+        return self._iter_messages_resilient(chat, reverse=reverse)
 
     def iter_download(self, message, *, offset, request_size):
         return self.iterate("download", media=encode_tl(message.media), offset=offset)
