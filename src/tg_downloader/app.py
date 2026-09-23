@@ -112,13 +112,13 @@ class DownloaderApp(App):
         Binding("f3", "settings", "Opcoes"),
         Binding("slash", "search", "Buscar", show=False),
         Binding("f1,question_mark", "help", "Ajuda"),
+        Binding("O", "open_destination", "Abrir pasta", key_display="shift+o"),
         Binding("q", "request_quit", "Sair"),
         Binding("ctrl+c", "request_quit", "Sair", show=False, priority=True),
         Binding("escape", "back", "Voltar", show=False),
         Binding("1", "focus_files", "Arquivos", show=False),
         Binding("2", "details", "Detalhes", show=False),
         Binding("4", "show_instances", "Instancias", show=False),
-        Binding("o", "open_destination", "Abrir pasta", show=False),
     ]
 
     def __init__(self, demo=False, offline=False):
@@ -752,7 +752,7 @@ class DownloaderApp(App):
             "N               Novo download", "F3              Configuracoes e conta",
             "R               Reconectar usando a sessao salva",
             "1 / 2 / 4       Arquivos / detalhes / instancias",
-            "Log             Arquivo TXT na pasta de destino", "O               Abrir pasta de destino",
+            "Log             Arquivo TXT na pasta de destino", "Shift+O         Abrir pasta de destino",
             "Esc             Voltar", "Q / Ctrl+C      Sair",
         ])))
 

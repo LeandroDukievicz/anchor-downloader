@@ -39,6 +39,8 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 - Organização automática em Fotos, Vídeos, Músicas, Áudios, Documentos,
   Legendas, GIFs, Stickers e Outros.
 - Manifesto por destino e relatório final em texto.
+- Atalho `Shift+O` no rodapé para abrir a pasta de destino no
+  gerenciador de arquivos do sistema.
 - Filtros, busca, detalhes do arquivo e controle individual da fila.
 - Suporte a várias instâncias, com serviço local compartilhado e bloqueio contra
   gravações simultâneas no mesmo destino.
@@ -137,7 +139,7 @@ Ao finalizar, o destino contém:
 | `1` | Focar a lista de arquivos |
 | `2` | Focar os detalhes do arquivo |
 | `4` | Focar o painel de instâncias |
-| `O` | Abrir a pasta de destino |
+| `Shift+O` | Abrir a pasta de destino |
 | `R` | Reconectar usando a sessão salva |
 | `F3` | Configurações e conta |
 | `F1` ou `?` | Mostrar a ajuda integrada |
