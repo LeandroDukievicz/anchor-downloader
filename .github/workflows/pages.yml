@@ -1,0 +1,60 @@
+name: pages
+
+# Publica a landing page (docs/) no GitHub Pages.
+#
+# O site é estático: não há build. O conteúdo de docs/ vira um artefato e é
+# servido como está — o Pages por Actions não passa nada pelo Jekyll, então o
+# docs/.nojekyll é só garantia para quem um dia trocar isto por publicação
+# direto do branch.
+#
+# Pages precisa estar ligado no repositório com a fonte "GitHub Actions"
+# (Settings → Pages → Build and deployment → Source). Repositório privado só
+# publica em plano pago; no plano grátis o repositório precisa ser público.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Um deploy por vez. `cancel-in-progress: false` porque cancelar no meio deixa
+# o site no ar em estado indefinido: melhor enfileirar.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v6
+
+      # O dashboard.png é o og:image da página: se sumir do artefato, o site
+      # sobe sem a captura e sem preview nas redes. Falhar aqui é mais barato
+      # do que descobrir depois pelo link quebrado.
+      - name: Os arquivos do site estão todos lá
+        run: |
+          for f in docs/index.html docs/site.css docs/tg-downloader.svg \
+                   docs/screenshots/dashboard.png; do
+            test -s "$f" || { echo "faltando ou vazio: $f"; exit 1; }
+          done
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/
+          include-hidden-files: true  # mantém o .nojekyll no artefato
+
+      - id: deploy
+        uses: actions/deploy-pages@v5

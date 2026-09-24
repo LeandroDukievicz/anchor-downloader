@@ -1,0 +1,630 @@
+/* TG Downloader — página do projeto.
+   A paleta não foi inventada aqui: é a do ícone do app
+   (#00e5ff → #06afff → #f13fd9 sobre #080b12), para a página e o programa
+   serem a mesma coisa. O layout imita a TUI de propósito: painel com o rótulo
+   entalhado na borda, monoespaçada em tudo, e o gradiente ciano→magenta como
+   assinatura. */
+
+:root {
+  color-scheme: dark;
+
+  --bg:        #07070d;
+  --bg-soft:   #0a0b14;
+  --panel:     #0b0c18;
+  --panel-hi:  #10121f;
+  --line:      #1e2138;
+  --line-hot:  #303760;
+
+  --cyan:      #00e5ff;
+  --blue:      #06afff;
+  --magenta:   #f13fd9;
+  --green:     #3dff9a;
+
+  --text:      #dfe4f2;
+  --muted:     #97a1c2;
+  --dim:       #626c8f;
+
+  --grad: linear-gradient(100deg, var(--cyan), var(--blue) 52%, var(--magenta));
+
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: "Martian Mono", var(--mono);
+
+  --gutter: 1rem;
+  --wrap: 68rem;
+  --radius: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--cyan); text-underline-offset: .25em; }
+a:hover { color: var(--magenta); }
+
+code { font-family: var(--mono); font-size: .9em; color: var(--cyan); }
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--wrap);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: .5rem;
+  z-index: 100;
+  background: var(--cyan);
+  color: #04040a;
+  padding: .5rem 1rem;
+  font-weight: 600;
+}
+.skip:focus { left: .5rem; }
+
+/* ── atmosfera CRT ─────────────────────────────────────────────────────── */
+
+.crt {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0 2px,
+      rgba(0, 0, 0, .22) 2px 3px
+    );
+  mix-blend-mode: multiply;
+  opacity: .5;
+}
+
+.crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: .035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── topo ──────────────────────────────────────────────────────────────── */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar__inner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 3.75rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: .78rem;
+  letter-spacing: -.02em;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brand:hover { color: var(--text); }
+.brand img { filter: drop-shadow(0 0 8px rgba(0, 229, 255, .45)); }
+
+.nav {
+  display: flex;
+  gap: 1.4rem;
+  margin-left: auto;
+  font-size: .82rem;
+}
+.nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding-block: .25rem;
+  border-bottom: 1px solid transparent;
+  transition: color .18s, border-color .18s;
+}
+.nav a:hover { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+.ghost-link {
+  font-size: .8rem;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid var(--line-hot);
+  border-radius: 999px;
+  padding: .3rem .9rem;
+  white-space: nowrap;
+  transition: color .18s, border-color .18s, background .18s;
+}
+.ghost-link:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, .07);
+}
+
+/* ── hero ──────────────────────────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  padding-block: clamp(3.5rem, 11vw, 7.5rem) clamp(3rem, 8vw, 5.5rem);
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+
+.hero__glow {
+  position: absolute;
+  inset: -30% -10% auto;
+  height: 120%;
+  background:
+    radial-gradient(42rem 26rem at 18% 8%, rgba(0, 229, 255, .16), transparent 62%),
+    radial-gradient(38rem 24rem at 82% 32%, rgba(241, 63, 217, .15), transparent 64%);
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+.hero__inner { position: relative; }
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  margin: 0 0 1.5rem;
+  font-size: .72rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.dot {
+  width: .45rem;
+  height: .45rem;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: .35; } }
+
+h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(2rem, 7.2vw, 4.1rem);
+  line-height: 1.12;
+  letter-spacing: -.045em;
+}
+h1 em {
+  font-style: normal;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.caret {
+  display: inline-block;
+  width: .5em;
+  height: .9em;
+  margin-left: .12em;
+  vertical-align: -.06em;
+  background: var(--cyan);
+  animation: blink 1.1s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.lede {
+  max-width: 44rem;
+  margin: 1.6rem 0 0;
+  font-size: clamp(.95rem, 2.4vw, 1.08rem);
+  color: var(--muted);
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-top: 2.25rem;
+}
+
+.btn-ghost {
+  font-size: .85rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--line-hot);
+  transition: color .18s, border-color .18s;
+}
+.btn-ghost:hover { color: var(--magenta); border-bottom-color: var(--magenta); }
+
+/* ── bloco de comando ──────────────────────────────────────────────────── */
+
+.cmd {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  max-width: 100%;
+  padding: .7rem 1rem;
+  background: var(--panel-hi);
+  border: 1px solid var(--line-hot);
+  border-radius: var(--radius);
+  font-size: .88rem;
+}
+.cmd::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--grad);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity .25s;
+  pointer-events: none;
+}
+.cmd:hover::before { opacity: .8; }
+
+.cmd__prompt { color: var(--magenta); font-weight: 600; }
+.cmd code { color: var(--text); white-space: pre; }
+
+.cmd--block { display: block; padding: 1rem 1rem .9rem; }
+.cmd--block code {
+  display: block;
+  overflow-x: auto;
+  padding-right: 4.5rem;
+  color: var(--text);
+  line-height: 1.85;
+  font-size: .82rem;
+}
+
+.cmd__copy {
+  margin-left: auto;
+  flex: none;
+  background: none;
+  border: 1px solid var(--line-hot);
+  border-radius: 6px;
+  color: var(--dim);
+  font: inherit;
+  font-size: .72rem;
+  letter-spacing: .06em;
+  padding: .12rem .6rem;
+  cursor: pointer;
+  transition: color .18s, border-color .18s;
+}
+.cmd--block .cmd__copy { position: absolute; top: .85rem; right: .85rem; margin: 0; }
+.cmd__copy:hover { color: var(--cyan); border-color: var(--cyan); }
+.cmd__copy[data-done] { color: var(--green); border-color: var(--green); }
+
+/* ── gráfico de transferência (assinatura do app) ──────────────────────── */
+
+.graph {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 3.75rem;
+  margin-top: 3rem;
+  padding: .5rem .75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, transparent, rgba(0, 229, 255, .04));
+}
+.graph i {
+  flex: 1;
+  min-width: 0;
+  border-radius: 1px;
+  background: var(--grad);
+  background-size: 3200% 100%;
+  background-position: calc(var(--i) * 3.2%) 0;
+  transform-origin: bottom;
+  animation: wave 3.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -.11s);
+  height: 100%;
+}
+@keyframes wave {
+  0%, 100% { transform: scaleY(.22); opacity: .75; }
+  50%      { transform: scaleY(1);   opacity: 1; }
+}
+
+/* ── números ───────────────────────────────────────────────────────────── */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1px;
+  margin: 3rem 0 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.stats > div { background: var(--bg); padding: 1.1rem 1.25rem; }
+.stats dt {
+  font-size: .68rem;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.stats dd {
+  margin: .3rem 0 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.6rem;
+  letter-spacing: -.05em;
+  color: var(--cyan);
+}
+.stats dd span { color: var(--dim); }
+.stats .is-zero { color: var(--green); }
+
+/* ── seções e painéis ──────────────────────────────────────────────────── */
+
+.band { padding-block: clamp(3.25rem, 9vw, 5.5rem); }
+.band + .band { border-top: 1px solid var(--line); }
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  gap: .9rem;
+  margin: 0 0 1.75rem;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(1.05rem, 3.2vw, 1.4rem);
+  letter-spacing: -.03em;
+}
+.section-title span {
+  font-size: .72rem;
+  color: var(--magenta);
+  letter-spacing: 0;
+}
+
+.section-lede {
+  max-width: 42rem;
+  margin: -.75rem 0 2rem;
+  color: var(--muted);
+  font-size: .94rem;
+}
+
+.panel {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.9rem 1.4rem 1.4rem;
+}
+
+/* O rótulo entalhado na borda — o detalhe que faz a página parecer o app. */
+.panel__label {
+  position: absolute;
+  top: 0;
+  left: 1.1rem;
+  transform: translateY(-50%);
+  padding-inline: .55rem;
+  background: var(--bg);
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: .6rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+/* ── captura ───────────────────────────────────────────────────────────── */
+
+.shot { margin: 0; padding: 1.9rem .9rem 1.1rem; }
+/* O quadro rola em vez de encolher: uma captura de terminal de 1712px espremida
+   em 358px não é captura de nada. O overflow fica neste embrulho, e não no
+   painel, senão o rótulo entalhado na borda seria cortado junto. */
+.shot__frame {
+  overflow-x: auto;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  -webkit-overflow-scrolling: touch;
+}
+.shot img { width: 100%; display: block; }
+.shot figcaption {
+  max-width: 46rem;
+  margin: 1.1rem auto 0;
+  padding-inline: .5rem;
+  color: var(--muted);
+  font-size: .86rem;
+  text-align: center;
+}
+
+/* ── cartões ───────────────────────────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1.5rem;
+}
+
+.card { transition: border-color .22s, transform .22s, background .22s; }
+.card:hover {
+  border-color: var(--line-hot);
+  background: var(--panel-hi);
+  transform: translateY(-2px);
+}
+.card h3 {
+  margin: 0 0 .55rem;
+  font-size: .98rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+.card p { margin: 0; color: var(--muted); font-size: .88rem; }
+
+.aside {
+  margin: 1.5rem 0 0;
+  color: var(--muted);
+  font-size: .9rem;
+}
+.aside strong { color: var(--text); font-weight: 600; }
+
+/* ── instalação ────────────────────────────────────────────────────────── */
+
+.install {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 1.5rem;
+}
+.install__item { display: flex; flex-direction: column; }
+.install__item h3 {
+  margin: 0 0 .4rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: -.04em;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.install__item > p { margin: 0 0 1.1rem; color: var(--muted); font-size: .86rem; }
+.install__item .cmd { margin-top: auto; }
+.fine { margin: .8rem 0 0; font-size: .78rem; color: var(--dim); }
+
+.commands { margin-top: 1.5rem; }
+.commands ul { margin: 0; padding: 0; list-style: none; }
+.commands li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem 1rem;
+  padding: .55rem 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: .86rem;
+}
+.commands li:last-child { border-bottom: 0; }
+.commands li code { flex: 0 0 13rem; color: var(--cyan); }
+.commands li span { color: var(--muted); }
+
+/* ── teclado ───────────────────────────────────────────────────────────── */
+
+.keys dl {
+  display: grid;
+  /* Duas colunas, não três: o atalho ocupa largura fixa e o que sobra precisa
+     caber a descrição numa linha só. Em três colunas o "↑ ↓ ou J K" quebrava. */
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: .2rem 2.5rem;
+  margin: 0;
+}
+.keys dl > div {
+  display: flex;
+  align-items: baseline;
+  gap: .9rem;
+  padding: .5rem 0;
+  border-bottom: 1px dashed var(--line);
+}
+/* Larga o bastante para a maior combinação (↑ ↓ ou J K) caber numa linha:
+   quando o K quebrava, aquela linha crescia e desalinhava a coluna inteira. */
+.keys dt { flex: 0 0 11rem; display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; }
+.keys dt span { color: var(--dim); font-size: .72rem; }
+.keys dd { margin: 0; color: var(--muted); font-size: .86rem; }
+
+kbd {
+  display: inline-block;
+  min-width: 1.7rem;
+  padding: .12rem .45rem;
+  background: var(--panel-hi);
+  border: 1px solid var(--line-hot);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: .74rem;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ── fecho ─────────────────────────────────────────────────────────────── */
+
+.closing__box { padding: 2.4rem 1.6rem 2rem; text-align: center; }
+.closing__box h2 {
+  margin: 0 0 .7rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(1.15rem, 4vw, 1.7rem);
+  letter-spacing: -.04em;
+}
+.closing__box p { margin: 0 auto 1.6rem; max-width: 34rem; color: var(--muted); font-size: .9rem; }
+.closing__box .cmd { display: inline-flex; text-align: left; }
+
+/* ── rodapé ────────────────────────────────────────────────────────────── */
+
+.foot {
+  border-top: 1px solid var(--line);
+  padding-block: 2.5rem 3rem;
+  background: var(--bg-soft);
+}
+.foot__inner { display: grid; gap: 1rem; }
+.foot__brand {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin: 0;
+  font-size: .82rem;
+  color: var(--muted);
+}
+.foot__links { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; font-size: .84rem; }
+.foot__links a { color: var(--muted); text-decoration: none; }
+.foot__links a:hover { color: var(--cyan); }
+.foot__note { margin: 0; max-width: 40rem; font-size: .76rem; color: var(--dim); }
+
+/* ── entrada em cena ───────────────────────────────────────────────────── */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: rise .7s cubic-bezier(.22, .68, .35, 1) forwards;
+  animation-delay: calc(var(--d) * 90ms);
+}
+@keyframes rise { to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; animation: none; }
+  .graph i { animation: none; transform: scaleY(.62); }
+  .dot, .caret { animation: none; }
+  .card:hover { transform: none; }
+}
+
+/* ── telas estreitas ───────────────────────────────────────────────────── */
+
+@media (max-width: 40rem) {
+  .nav { display: none; }
+  .ghost-link { margin-left: auto; }
+  .graph { height: 2.75rem; margin-top: 2.25rem; }
+  .commands li code { flex-basis: 100%; }
+  .keys dt { flex-basis: 100%; }
+  .keys dl > div { flex-direction: column; gap: .35rem; }
+  .shot { padding-inline: .6rem; }
+  .shot__frame img { min-width: 40rem; }
+}

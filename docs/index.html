@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TG Downloader — baixe coleções grandes do Telegram pelo terminal</title>
+<meta name="description" content="TUI para baixar e organizar coleções grandes de canais e grupos do Telegram: calcula o volume antes de começar, baixa em paralelo, retoma depois de qualquer interrupção. Software livre, MIT, sem servidor intermediário.">
+<meta name="theme-color" content="#07070d">
+<link rel="icon" href="tg-downloader.svg" type="image/svg+xml">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="TG Downloader">
+<meta property="og:description" content="Baixe coleções grandes do Telegram por um painel no terminal. Retoma o que parou, organiza por categoria e nunca carrega o histórico inteiro na memória.">
+<meta property="og:url" content="https://leandrodukievicz.github.io/tg-downloader/">
+<meta property="og:image" content="https://leandrodukievicz.github.io/tg-downloader/screenshots/dashboard.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Martian+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+<div class="crt" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="wrap topbar__inner">
+    <a class="brand" href="#">
+      <img src="tg-downloader.svg" alt="" width="26" height="26">
+      <span>TG&nbsp;Downloader</span>
+    </a>
+    <nav class="nav" aria-label="Seções">
+      <a href="#painel">Painel</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#instalar">Instalar</a>
+      <a href="#teclado">Teclado</a>
+    </nav>
+    <a class="ghost-link" href="https://github.com/LeandroDukievicz/tg-downloader">GitHub&nbsp;↗</a>
+  </div>
+</header>
+
+<main id="conteudo">
+
+<!-- ── HERO ───────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero__glow" aria-hidden="true"></div>
+  <div class="wrap hero__inner">
+
+    <p class="eyebrow reveal" style="--d:0">
+      <span class="dot"></span> v7.3.0 · Linux · MIT
+    </p>
+
+    <h1 class="reveal" style="--d:1">
+      Canal inteiro.<br>
+      <em>Um terminal.</em><span class="caret" aria-hidden="true"></span>
+    </h1>
+
+    <p class="lede reveal" style="--d:2">
+      TG&nbsp;Downloader baixa e organiza coleções grandes de canais e grupos do
+      Telegram sem carregar o histórico inteiro na memória. Calcula o volume
+      antes de começar, baixa em paralelo e retoma exatamente de onde parou.
+    </p>
+
+    <div class="cta reveal" style="--d:3">
+      <div class="cmd" data-copy>
+        <span class="cmd__prompt" aria-hidden="true">$</span>
+        <code>pipx install tg-downloader</code>
+        <button class="cmd__copy" type="button" aria-label="Copiar comando de instalação">copiar</button>
+      </div>
+      <a class="btn-ghost" href="#instalar">outras formas de instalar</a>
+    </div>
+
+    <div class="graph reveal" style="--d:4" aria-hidden="true">
+      <i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i>
+      <i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i><i style="--i:7"></i>
+      <i style="--i:8"></i><i style="--i:9"></i><i style="--i:10"></i><i style="--i:11"></i>
+      <i style="--i:12"></i><i style="--i:13"></i><i style="--i:14"></i><i style="--i:15"></i>
+      <i style="--i:16"></i><i style="--i:17"></i><i style="--i:18"></i><i style="--i:19"></i>
+      <i style="--i:20"></i><i style="--i:21"></i><i style="--i:22"></i><i style="--i:23"></i>
+      <i style="--i:24"></i><i style="--i:25"></i><i style="--i:26"></i><i style="--i:27"></i>
+      <i style="--i:28"></i><i style="--i:29"></i><i style="--i:30"></i><i style="--i:31"></i>
+    </div>
+
+    <dl class="stats reveal" style="--d:5">
+      <div><dt>Downloads paralelos</dt><dd>1<span>–</span>4</dd></div>
+      <div><dt>Janelas por conexão</dt><dd>10<span>+</span></dd></div>
+      <div><dt>Categorias na saída</dt><dd>9</dd></div>
+      <div><dt>Servidor intermediário</dt><dd class="is-zero">0</dd></div>
+    </dl>
+
+  </div>
+</section>
+
+<!-- ── PAINEL ─────────────────────────────────────────────────────────── -->
+<section id="painel" class="band">
+  <div class="wrap">
+    <h2 class="section-title"><span>01</span> O painel</h2>
+    <figure class="shot panel">
+      <span class="panel__label">demo / dados simulados</span>
+      <div class="shot__frame">
+        <img src="screenshots/dashboard.png"
+             alt="Painel do TG Downloader no terminal: cabeçalho com conta e sessão, volume total da fila, gráfico de transferência, lista de dez arquivos com progresso, velocidade e status, e um painel lateral com os detalhes do arquivo selecionado."
+             width="1848" height="1124" loading="lazy" decoding="async">
+      </div>
+      <figcaption>
+        Tudo o que está acontecendo cabe numa tela: volume confirmado, o que já
+        está disponível no destino, velocidade instantânea, pico, ETA e o estado
+        de cada arquivo. Rode <code>tg-downloader --demo</code> para ver assim,
+        sem configurar conta nenhuma.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ── RECURSOS ───────────────────────────────────────────────────────── -->
+<section id="recursos" class="band">
+  <div class="wrap">
+    <h2 class="section-title"><span>02</span> O que ele faz</h2>
+
+    <div class="grid">
+      <article class="panel card">
+        <span class="panel__label">volume</span>
+        <h3>Sabe o tamanho antes de começar</h3>
+        <p>Uma primeira passagem percorre só os metadados, sem reter as mensagens,
+        e confirma o total. O progresso passa a ter uma referência real em vez de
+        crescer às cegas.</p>
+      </article>
+
+      <article class="panel card">
+        <span class="panel__label">retomada</span>
+        <h3>Continua de onde parou</h3>
+        <p>Arquivos <code>.part</code> são retomados depois de queda de rede,
+        reinício ou fechamento. Referências de mídia expiradas são renovadas
+        sozinhas, sem perder o parcial já baixado.</p>
+      </article>
+
+      <article class="panel card">
+        <span class="panel__label">paralelo</span>
+        <h3>Uma conexão para dez janelas</h3>
+        <p>Dez ou mais janelas compartilham uma única conexão com o Telegram,
+        coordenadas por um serviço local. O limite global evita abrir fluxos que
+        a conta não aguentaria.</p>
+      </article>
+
+      <article class="panel card">
+        <span class="panel__label">limites</span>
+        <h3>Aguenta o flood wait</h3>
+        <p>Espera automática para os limites do Telegram, inclusive o
+        <code>FloodPremiumWait</code> de contas não Premium — e a espera é
+        combinada entre todas as janelas, não repetida por cada uma.</p>
+      </article>
+
+      <article class="panel card">
+        <span class="panel__label">saída</span>
+        <h3>Organiza sozinho</h3>
+        <p>Fotos, Vídeos, Músicas, Áudios, Documentos, Legendas, GIFs, Stickers e
+        Outros. Cada destino ganha um manifesto de verificação e um relatório
+        final em texto.</p>
+      </article>
+
+      <article class="panel card">
+        <span class="panel__label">memória</span>
+        <h3>Estável por dias</h3>
+        <p>Fila limitada para canais grandes, liberação periódica de buffers no
+        serviço compartilhado e descriptografia nativa por <code>cryptg</code>,
+        para o Python não virar o gargalo.</p>
+      </article>
+    </div>
+
+    <p class="aside panel">
+      <span class="panel__label">privacidade</span>
+      Você usa o <strong>seu próprio</strong> <code>API ID</code> e
+      <code>API Hash</code> de <a href="https://my.telegram.org">my.telegram.org</a>.
+      A autenticação fica no seu computador em <code>StringSession</code>, com
+      permissão restrita ao seu usuário. <strong>Não existe servidor
+      intermediário</strong> — o programa fala direto com o Telegram.
+    </p>
+  </div>
+</section>
+
+<!-- ── INSTALAR ───────────────────────────────────────────────────────── -->
+<section id="instalar" class="band">
+  <div class="wrap">
+    <h2 class="section-title"><span>03</span> Instalar</h2>
+
+    <div class="install">
+      <article class="panel install__item">
+        <span class="panel__label">recomendado</span>
+        <h3>pipx</h3>
+        <p>Ambiente isolado, comando disponível de qualquer pasta, sem mexer no
+        Python do sistema.</p>
+        <div class="cmd cmd--block" data-copy>
+          <code>sudo apt install -y pipx
+pipx install tg-downloader
+pipx ensurepath</code>
+          <button class="cmd__copy" type="button" aria-label="Copiar comandos de instalação por pipx">copiar</button>
+        </div>
+        <p class="fine">Atualizar: <code>pipx upgrade tg-downloader</code></p>
+      </article>
+
+      <article class="panel install__item">
+        <span class="panel__label">loja</span>
+        <h3>snap</h3>
+        <p>Atualização automática. Para baixar num HD secundário ou externo,
+        libere o acesso uma vez.</p>
+        <div class="cmd cmd--block" data-copy>
+          <code>sudo snap install tg-downloader
+sudo snap connect tg-downloader:removable-media</code>
+          <button class="cmd__copy" type="button" aria-label="Copiar comandos de instalação por snap">copiar</button>
+        </div>
+        <p class="fine">O destino padrão <code>~/Downloads/Telegram</code> funciona sem liberar nada.</p>
+      </article>
+
+      <article class="panel install__item">
+        <span class="panel__label">código-fonte</span>
+        <h3>git</h3>
+        <p>Para desenvolver ou rodar uma versão ainda não publicada.</p>
+        <div class="cmd cmd--block" data-copy>
+          <code>git clone https://github.com/LeandroDukievicz/tg-downloader.git
+cd tg-downloader
+./install.sh</code>
+          <button class="cmd__copy" type="button" aria-label="Copiar comandos de instalação pelo código-fonte">copiar</button>
+        </div>
+        <p class="fine">Requer <code>python3-venv</code>.</p>
+      </article>
+    </div>
+
+    <div class="panel commands">
+      <span class="panel__label">comandos</span>
+      <ul>
+        <li><code>tg-downloader</code><span>inicia normalmente</span></li>
+        <li><code>--demo</code><span>painel com dados simulados</span></li>
+        <li><code>--offline</code><span>abre sem conectar ao Telegram</span></li>
+        <li><code>--doctor</code><span>verifica a instalação sem conectar</span></li>
+        <li><code>--version</code><span>mostra a versão instalada</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ── TECLADO ────────────────────────────────────────────────────────── -->
+<section id="teclado" class="band">
+  <div class="wrap">
+    <h2 class="section-title"><span>04</span> Tudo pelo teclado</h2>
+    <p class="section-lede">Nenhuma ação depende do mouse. Estas são as que você
+    usa o dia inteiro — <kbd>F1</kbd> abre a lista completa dentro do programa.</p>
+
+    <div class="panel keys">
+      <span class="panel__label">atalhos</span>
+      <dl>
+        <div><dt><kbd>N</kbd></dt><dd>Criar um novo download</dd></div>
+        <div><dt><kbd>↑</kbd><kbd>↓</kbd> <span>ou</span> <kbd>J</kbd><kbd>K</kbd></dt><dd>Selecionar arquivo</dd></div>
+        <div><dt><kbd>Espaço</kbd></dt><dd>Pausar ou retomar o arquivo</dd></div>
+        <div><dt><kbd>P</kbd></dt><dd>Pausar ou retomar a fila inteira</dd></div>
+        <div><dt><kbd>/</kbd></dt><dd>Buscar um arquivo pelo nome</dd></div>
+        <div><dt><kbd>Del</kbd></dt><dd>Remover da fila</dd></div>
+        <div><dt><kbd>Shift</kbd><kbd>O</kbd></dt><dd>Abrir a pasta de destino</dd></div>
+        <div><dt><kbd>R</kbd></dt><dd>Reconectar com a sessão salva</dd></div>
+        <div><dt><kbd>F3</kbd></dt><dd>Configurações e conta</dd></div>
+        <div><dt><kbd>Q</kbd></dt><dd>Encerrar o programa</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ── FECHO ──────────────────────────────────────────────────────────── -->
+<section class="band closing">
+  <div class="wrap">
+    <div class="panel closing__box">
+      <span class="panel__label">começar</span>
+      <h2>Experimente sem configurar nada</h2>
+      <p>O modo demonstração abre o painel completo com dados simulados. Nenhuma
+      conta, nenhuma conexão, nenhum arquivo baixado.</p>
+      <div class="cmd" data-copy>
+        <span class="cmd__prompt" aria-hidden="true">$</span>
+        <code>tg-downloader --demo</code>
+        <button class="cmd__copy" type="button" aria-label="Copiar comando do modo demonstração">copiar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__inner">
+    <p class="foot__brand">
+      <img src="tg-downloader.svg" alt="" width="20" height="20">
+      TG&nbsp;Downloader · licença MIT
+    </p>
+    <nav class="foot__links" aria-label="Links do projeto">
+      <a href="https://github.com/LeandroDukievicz/tg-downloader">Código</a>
+      <a href="https://github.com/LeandroDukievicz/tg-downloader/issues">Problemas</a>
+      <a href="https://pypi.org/project/tg-downloader/">PyPI</a>
+      <a href="https://snapcraft.io/tg-downloader">Snap Store</a>
+    </nav>
+    <p class="foot__note">
+      Projeto independente, sem vínculo com o Telegram. Você usa a sua própria
+      conta e as suas próprias credenciais de API.
+    </p>
+  </div>
+</footer>
+
+<script>
+// Único JS da página: copiar comando. Sem ele tudo continua legível e
+// selecionável. O clipboard recusa em contexto inseguro e chega a travar com a
+// aba fora de foco, então o botão nunca fica sem resposta: quando a cópia não
+// vai, ele seleciona o texto e o Ctrl+C resolve.
+(function () {
+  function selecionar(no) {
+    var faixa = document.createRange();
+    faixa.selectNodeContents(no);
+    var selecao = window.getSelection();
+    selecao.removeAllRanges();
+    selecao.addRange(faixa);
+  }
+
+  document.querySelectorAll("[data-copy]").forEach(function (caixa) {
+    var botao = caixa.querySelector(".cmd__copy");
+    var fonte = caixa.querySelector("code");
+    if (!botao || !fonte) return;
+
+    function responder(texto, ok) {
+      botao.textContent = texto;
+      if (ok) botao.dataset.done = "1";
+      setTimeout(function () {
+        delete botao.dataset.done;
+        botao.textContent = "copiar";
+      }, 1800);
+    }
+
+    botao.addEventListener("click", function () {
+      function desistir() {
+        selecionar(fonte);
+        responder("selecionado", false);
+      }
+      if (!navigator.clipboard) return desistir();
+
+      // A promessa do clipboard não só rejeita: com a aba fora de foco ela
+      // fica pendente para sempre, e o botão ficaria mudo. Quem responder
+      // primeiro manda.
+      var pronto = false;
+      var prazo = setTimeout(function () {
+        if (!pronto) { pronto = true; desistir(); }
+      }, 1200);
+      function assentar(acao) {
+        if (pronto) return;
+        pronto = true;
+        clearTimeout(prazo);
+        acao();
+      }
+      navigator.clipboard.writeText(fonte.textContent.trim()).then(
+        function () { assentar(function () { responder("copiado", true); }); },
+        function () { assentar(desistir); }
+      );
+    });
+  });
+})();
+</script>
+</body>
+</html>
