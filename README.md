@@ -12,6 +12,8 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 
 ## Recursos
 
+- Abertura de 5 a 7 segundos que conecta a conta enquanto roda: quando o
+  painel abre, a sessao ja esta de pe.
 - Dashboard cyberpunk para acompanhar arquivos, velocidade, ETA e progresso.
 - Cálculo do tamanho total da coleção antes do primeiro download.
 - Volume total, volume já disponível, porcentagem e espaço restante em tempo real.
@@ -146,6 +148,10 @@ movida, execute `./install.sh` novamente para atualizar os atalhos.
 6. Quando o cabeçalho mostrar `PRONTO`, pressione `N` para criar uma fila.
 7. Informe o link do canal ou grupo, uma pasta absoluta de destino e confirme.
 
+Enquanto não existir uma sessão salva, o programa abre sozinho uma janela com
+esse roteiro — ela some por conta própria depois do primeiro login, sem
+precisar de nenhuma marcação de "não mostrar de novo".
+
 Cada uma dessas janelas aparece, com explicação, em
 [Telas do aplicativo](#telas-do-aplicativo).
 
@@ -160,6 +166,26 @@ simulados, a configuração vem de uma pasta temporária e o destino é fixado e
 `/home/usuario/...`. Nenhuma conta, canal, credencial ou caminho pessoal
 aparece nelas. Para refazê-las depois de mexer na interface, veja
 [Desenvolvimento e testes](#desenvolvimento-e-testes).
+
+### Abertura
+
+![Âncora descendo na abertura](docs/screenshots/abertura.png)
+
+A âncora desce pela água, fundeia no leito e levanta areia. A corrente
+acompanha da superfície, e as bolhas sobem ao fundo.
+
+![Marca formada ao fim da abertura](docs/screenshots/abertura-marca.png)
+
+Quando a âncora firma, a marca se escreve na água e a abertura entrega o
+painel. Ela dura de 5 a 7 segundos, e esse tempo não é gasto à toa: a conexão
+com o Telegram acontece por baixo, em paralelo. Quem já tem sessão salva chega
+ao painel com a conta ligada, sem esperar mais por isso.
+
+O tempo se ajusta ao que está acontecendo. Assim que a conexão responde, a
+abertura termina no próximo marco visual; se a rede estiver ruim, ela entrega o
+painel no teto de 7 segundos e a conexão continua em segundo plano. Qualquer
+tecla pula a animação, `--sem-abertura` a desliga, e em terminal pequeno demais
+ela nem chega a aparecer.
 
 ### Painel principal
 
@@ -376,6 +402,7 @@ anchor-downloader             # inicia normalmente
 anchor-downloader --demo      # dashboard com dados simulados
 anchor-downloader --offline   # abre sem conectar ao Telegram
 anchor-downloader --doctor    # verifica a instalação sem conectar
+anchor-downloader --sem-abertura  # pula a animação e vai direto ao painel
 anchor-downloader --version   # mostra a versão instalada
 ```
 

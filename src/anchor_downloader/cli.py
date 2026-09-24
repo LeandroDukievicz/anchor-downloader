@@ -52,6 +52,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--doctor", action="store_true", help="verificar instalacao local sem conectar"
     )
+    parser.add_argument(
+        "--sem-abertura", dest="opening", action="store_false",
+        help="pular a animacao de abertura e ir direto para o painel",
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
     if args.doctor:
@@ -59,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from .app import DownloaderApp
 
-        DownloaderApp(demo=args.demo, offline=args.offline).run()
+        DownloaderApp(demo=args.demo, offline=args.offline, opening=args.opening).run()
     except KeyboardInterrupt:
         return 130
     return 0

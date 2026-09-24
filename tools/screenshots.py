@@ -61,6 +61,7 @@ SANDBOX = _sandbox()
 
 from textual.widgets import Input  # noqa: E402
 
+from anchor_downloader import splash  # noqa: E402
 from anchor_downloader.app import DownloaderApp  # noqa: E402
 from anchor_downloader.dialogs import (  # noqa: E402
     ConfirmScreen,
@@ -79,7 +80,7 @@ class Session:
         self.size = size
 
     async def __aenter__(self):
-        self.app = DownloaderApp(demo=True)
+        self.app = DownloaderApp(demo=True, opening=False)
         # Definido antes do mount: `_seed_demo` monta os caminhos dos arquivos
         # simulados a partir daqui, e e este valor que aparece em DETALHES DO
         # ARQUIVO.
@@ -119,8 +120,41 @@ class Session:
         await self.pilot.pause()
 
 
+async def _opening(svg_dir: Path, names: list[str]) -> None:
+    """Dois instantes da abertura: a ancora descendo e a marca formada.
+
+    A abertura e uma tela do app como outra qualquer, entao ela e capturada
+    subindo o app de verdade e adiantando os quadros a mao — sem esperar os
+    segundos passarem, que deixariam a geracao das imagens lenta e instavel.
+    """
+    # No instante exato do piso a abertura se fecha e quem aparece e o painel.
+    # O ultimo quadro antes disso e onde a marca ja esta inteira na tela.
+    ultimo = splash.FLOOR_SECONDS - splash.FRAME_SECONDS
+    for name, target in (("abertura", 2.2), ("abertura-marca", ultimo)):
+        app = DownloaderApp(demo=True, opening=True)
+        app.last_destination = DESTINATION
+        async with app.run_test(size=WIDE) as pilot:
+            await pilot.pause()
+            tela = app.screen
+            assert isinstance(tela, splash.SplashScreen), "a abertura nao subiu"
+            # Sem congelar o timer, o tempo real corre durante o `pause()` e a
+            # abertura passa do instante pedido — chegando a se fechar sozinha.
+            tela.timer.pause()
+            # Um quadro a menos que o alvo: o proprio _tick soma o ultimo.
+            tela.elapsed = target - splash.FRAME_SECONDS
+            tela._tick()
+            await pilot.pause()
+            assert isinstance(app.screen, splash.SplashScreen), (
+                f"a abertura fechou antes de {name} ser capturada"
+            )
+            (svg_dir / f"{name}.svg").write_text(app.export_screenshot(), encoding="utf-8")
+            names.append(name)
+
+
 async def capture(svg_dir: Path) -> list[str]:
     names: list[str] = []
+
+    await _opening(svg_dir, names)
 
     # ── Painel completo, abas, busca e pausa ─────────────────────────────
     async with Session(svg_dir, names, WIDE) as session:

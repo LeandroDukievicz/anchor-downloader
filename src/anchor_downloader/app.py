@@ -24,6 +24,7 @@ from .auth import AuthCancelled
 from .broker import shared_client
 from .diagnostics import logger
 from .dialogs import ConfirmScreen, MessageScreen, NewDownloadScreen, PromptScreen, SettingsScreen
+from . import splash
 from .widgets import BLUE, CYAN, GREEN, MUTED, PINK, RED, WHITE, YELLOW
 from .widgets import FileTable, FocusPanel, TransferGraph, gradient, meter
 
@@ -34,6 +35,24 @@ STATUS = {
     "removed": ("Removido", MUTED),
 }
 FINISHED = {"complete", "skipped", "error", "removed"}
+
+# Aparece enquanto nao existe sessao salva — ou seja, exatamente enquanto a
+# pessoa ainda nao consegue baixar nada. Some sozinha depois do primeiro login,
+# sem precisar de arquivo de controle nem de "nao mostrar de novo".
+WELCOME = """Esta janela aparece enquanto nao existe uma sessao salva.
+
+1. Pegue o seu API ID e o API Hash em my.telegram.org: entre com o
+   seu telefone, abra "API development tools" e crie uma aplicacao.
+2. Pressione F3 aqui e cole os dois valores.
+3. Escolha Conectar. O Telegram vai pedir o telefone com codigo do
+   pais, depois o codigo de verificacao e, se a conta tiver, a senha
+   de verificacao em duas etapas.
+4. Quando o cabecalho mostrar PRONTO, pressione N para criar a
+   primeira fila.
+
+Nada disso sai do seu computador. As credenciais e a sessao ficam em
+~/.config/anchor-downloader, com permissao apenas para o seu usuario,
+e nao existe servidor intermediario entre voce e o Telegram."""
 
 
 @contextlib.contextmanager
@@ -121,10 +140,11 @@ class DownloaderApp(App):
         Binding("4", "show_instances", "Instancias", show=False),
     ]
 
-    def __init__(self, demo=False, offline=False):
+    def __init__(self, demo=False, offline=False, opening=True):
         super().__init__()
         self.demo = demo
         self.offline = offline
+        self.opening = opening
         self.state = engine.create_state(0, 4)
         self.state.setdefault("downloads", [])
         self.state["phase_label"] = "MODO DEMONSTRACAO" if demo else "DESCONECTADO"
@@ -194,6 +214,43 @@ class DownloaderApp(App):
         self.set_interval(1.0, self.refresh_dashboard)
         self.query_one("#files", FileTable).focus()
         self.refresh_dashboard()
+        self._open()
+
+    def _open(self):
+        """Mostra a abertura enquanto a conexao acontece por baixo.
+
+        O tempo da animacao nao e tempo perdido: a conexao ja foi disparada no
+        mount e a abertura espera por ela. Quem tem sessao salva chega no painel
+        conectado, sem ver um unico quadro a mais por causa disso.
+        """
+        if not self.opening or not splash.fits(self.size.width, self.size.height):
+            self._opened()
+            return
+        if self.demo:
+            status = "modo demonstracao"
+        elif self.connection_task:
+            status = "conectando ao Telegram"
+        else:
+            status = ""
+        self.push_screen(
+            splash.SplashScreen(self.connection_task, status),
+            lambda _: self._opened(),
+        )
+
+    def needs_welcome(self) -> bool:
+        """Quem ainda nao tem sessao precisa das instrucoes de conexao.
+
+        A condicao e "nao da para baixar nada ainda", nao "primeira vez que
+        abriu": assim as instrucoes reaparecem enquanto forem uteis e somem
+        sozinhas depois do primeiro login, sem arquivo de controle nenhum.
+        Quem pediu --offline nao quer conectar agora e nao e incomodado.
+        """
+        return not (self.demo or self.offline) and not engine.STRING_SESSION_FILE.exists()
+
+    def _opened(self):
+        """Depois da abertura, ensina a conectar quem ainda nao tem sessao."""
+        if self.needs_welcome():
+            self.push_screen(MessageScreen("Como conectar a sua conta", WELCOME))
 
     def on_resize(self):
         if self.is_mounted:
