@@ -1,0 +1,50 @@
+name: snap
+
+# Constrói o snap e **prova que ele roda**: instala o que acabou de sair e
+# chama o comando. Só compilar não diz nada — o erro que este projeto arrisca
+# é de confinamento, e ele aparece na primeira execução, não no build.
+#
+# Não publica na loja: isso pede credencial (`snapcraft login`) e o nome
+# registrado. O snap gerado fica como artefato para instalar à mão com
+# `sudo snap install --dangerous`.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "snap/**"
+      - "src/**"
+      - "pyproject.toml"
+      - ".github/workflows/snap.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: snapcore/action-build@v1
+        id: build
+
+      - name: Instalar e rodar
+        run: |
+          sudo snap install --dangerous "${{ steps.build.outputs.snap }}"
+          tg-downloader --version
+
+      # A linha que faz o snap existir: sem TG_DOWNLOADER_HOME o app tenta
+      # ~/.config/telegram-downloader, que a interface `home` não alcança, e
+      # morre na primeira gravação. O `--doctor` imprime os caminhos que vai
+      # usar sem conectar no Telegram, então serve de prova barata.
+      - name: A configuração foi para dentro do snap
+        run: |
+          tg-downloader --doctor
+          tg-downloader --doctor | grep -q "snap/tg-downloader/common" \
+            || { echo "TG_DOWNLOADER_HOME não pegou"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snap
+          path: ${{ steps.build.outputs.snap }}
