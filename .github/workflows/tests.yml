@@ -52,5 +52,9 @@ jobs:
 
       - name: O comando roda
         run: |
-          "$HOME/.local/bin/tg-downloader" --version
-          "$HOME/.local/bin/tg-downloader" --doctor
+          # O runner ja vem com PIPX_BIN_DIR apontando para /opt/pipx_bin, e
+          # nao para ~/.local/bin. Perguntar ao proprio pipx onde ele expos o
+          # comando testa a mesma coisa sem depender do padrao da maquina.
+          bin_dir="$(pipx environment --value PIPX_BIN_DIR)"
+          "$bin_dir/tg-downloader" --version
+          "$bin_dir/tg-downloader" --doctor
