@@ -32,17 +32,17 @@ jobs:
       - name: Instalar e rodar
         run: |
           sudo snap install --dangerous "${{ steps.build.outputs.snap }}"
-          tg-downloader --version
+          anchor-downloader --version
 
-      # A linha que faz o snap existir: sem TG_DOWNLOADER_HOME o app tenta
-      # ~/.config/telegram-downloader, que a interface `home` não alcança, e
+      # A linha que faz o snap existir: sem ANCHOR_DOWNLOADER_HOME o app tenta
+      # ~/.config/anchor-downloader, que a interface `home` não alcança, e
       # morre na primeira gravação. O `--doctor` imprime os caminhos que vai
       # usar sem conectar no Telegram, então serve de prova barata.
       - name: A configuração foi para dentro do snap
         run: |
-          tg-downloader --doctor
-          tg-downloader --doctor | grep -q "snap/tg-downloader/common" \
-            || { echo "TG_DOWNLOADER_HOME não pegou"; exit 1; }
+          anchor-downloader --doctor
+          anchor-downloader --doctor | grep -q "snap/anchor-downloader/common" \
+            || { echo "ANCHOR_DOWNLOADER_HOME não pegou"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:

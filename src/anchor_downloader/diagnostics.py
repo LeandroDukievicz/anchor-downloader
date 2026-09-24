@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 
-LOGGER_NAME = "tg_downloader"
+LOGGER_NAME = "anchor_downloader"
 MAX_LOG_BYTES = 2 * 1024 * 1024
 BACKUP_COUNT = 3
 
@@ -62,8 +62,8 @@ class LockedRotatingFileHandler(logging.FileHandler):
 def config_dir() -> Path:
     return Path(
         os.environ.get(
-            "TG_DOWNLOADER_HOME",
-            Path.home() / ".config" / "telegram-downloader",
+            "ANCHOR_DOWNLOADER_HOME",
+            Path.home() / ".config" / "anchor-downloader",
         )
     ).expanduser().resolve()
 
@@ -71,7 +71,7 @@ def config_dir() -> Path:
 def configure_logging() -> logging.Logger:
     """Return the shared logger, installing one bounded file handler once."""
     logger = logging.getLogger(LOGGER_NAME)
-    if any(getattr(handler, "_tg_downloader", False) for handler in logger.handlers):
+    if any(getattr(handler, "_anchor_downloader", False) for handler in logger.handlers):
         return logger
 
     directory = config_dir()
@@ -81,7 +81,7 @@ def configure_logging() -> logging.Logger:
     except OSError:
         pass
     handler = LockedRotatingFileHandler(directory / "diagnostic.log")
-    handler._tg_downloader = True
+    handler._anchor_downloader = True
     handler.setFormatter(logging.Formatter(
         "%(asctime)s %(process)d %(levelname)s %(name)s: %(message)s"
     ))

@@ -59,7 +59,7 @@ def _telethon_loop_context():
 
 
 class DownloaderApp(App):
-    TITLE = "TG DOWNLOADER"
+    TITLE = "ANCHOR DOWNLOAD"
     ENABLE_COMMAND_PALETTE = False
     CSS = """
     Screen { background: #030812; color: #d7e6f4; }
@@ -312,7 +312,7 @@ class DownloaderApp(App):
         self.query_one("#summary", Static).update(summary)
 
     def _update_header(self):
-        text = gradient("TG DOWNLOADER", bold=True)
+        text = gradient("ANCHOR DOWNLOAD", bold=True)
         text.append(f"  v{__version__}", PINK)
         if self.size.width >= 100:
             text.append("  |  " + self.state.get("account", "")[:24], CYAN)
@@ -654,7 +654,7 @@ class DownloaderApp(App):
                 message = "Fila finalizada"
                 if log_path:
                     message += f"\nLog salvo em: {log_path}"
-                self.notify(message, title="TG Downloader", timeout=8)
+                self.notify(message, title="Anchor Download", timeout=8)
             except asyncio.CancelledError:
                 raise
             except Exception as error:

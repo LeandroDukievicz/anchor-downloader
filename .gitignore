@@ -17,6 +17,6 @@ dist/
 *.session-journal
 session_string
 config.json
-.telegram_downloader_manifest.json
-.tg-downloader.lock
-telegram_downloader_log.txt
+.anchor_downloader_manifest.json
+.anchor-downloader.lock
+anchor_downloader_log.txt

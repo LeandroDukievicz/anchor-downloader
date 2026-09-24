@@ -5,7 +5,7 @@ import pytest
 from telethon.errors import FileReferenceExpiredError, FloodPremiumWaitError
 from telethon.tl.types import MessageMediaPhoto, PhotoEmpty
 
-from tg_downloader import engine
+from anchor_downloader import engine
 
 
 class FailingStream:

@@ -5,7 +5,7 @@ name: publish
 # Fica inerte até o repositório ter a variável PYPI_READY=true: assim ninguém
 # leva erro de workflow por publicar uma release antes de o PyPI estar
 # configurado. Para ligar:
-#   1. criar o projeto `tg-downloader` no PyPI;
+#   1. criar o projeto `anchor-downloader` no PyPI;
 #   2. em Trusted Publishers, apontar para este repositório, o workflow
 #      `publish.yml` e o ambiente `pypi`;
 #   3. definir a variável de repositório PYPI_READY como `true`.

@@ -46,7 +46,7 @@ jobs:
       # do que descobrir depois pelo link quebrado.
       - name: Os arquivos do site estão todos lá
         run: |
-          for f in docs/index.html docs/site.css docs/tg-downloader.svg \
+          for f in docs/index.html docs/site.css docs/anchor-downloader.svg \
                    docs/screenshots/dashboard.png; do
             test -s "$f" || { echo "faltando ou vazio: $f"; exit 1; }
           done

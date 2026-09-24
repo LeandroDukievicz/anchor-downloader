@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]  # PEP 639: license como expressao SPDX
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tg-downloader"
+name = "anchor-downloader"
 version = "7.3.0"
 description = "Downloader de arquivos do Telegram com painel interativo no terminal"
 readme = "README.md"
@@ -35,18 +35,18 @@ dependencies = [
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "pyflakes>=3"]
 
 [project.urls]
-Homepage = "https://leandrodukievicz.github.io/tg-downloader/"
-Repository = "https://github.com/LeandroDukievicz/tg-downloader"
-Issues = "https://github.com/LeandroDukievicz/tg-downloader/issues"
+Homepage = "https://leandrodukievicz.github.io/anchor-downloader/"
+Repository = "https://github.com/LeandroDukievicz/anchor-downloader"
+Issues = "https://github.com/LeandroDukievicz/anchor-downloader/issues"
 
 [project.scripts]
-tg-downloader = "tg_downloader.cli:main"
+anchor-downloader = "anchor_downloader.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-tg_downloader = ["*.tcss", "assets/*.svg"]
+anchor_downloader = ["*.tcss", "assets/*.svg"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

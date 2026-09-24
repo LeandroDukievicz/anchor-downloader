@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tg_downloader.dialogs import _destination_path
+from anchor_downloader.dialogs import _destination_path
 
 
 def test_caminho_relativo_e_recusado():
@@ -31,24 +31,24 @@ def test_fora_do_snap_o_disco_externo_nao_e_barrado(monkeypatch):
 
 def test_dentro_do_snap_o_disco_bloqueado_ensina_o_comando(monkeypatch):
     """O que a pessoa precisa nao e saber que falhou: e a linha que resolve."""
-    monkeypatch.setenv("SNAP_INSTANCE_NAME", "tg-downloader")
-    monkeypatch.setattr("tg_downloader.dialogs.os.access", lambda *a, **k: False)
+    monkeypatch.setenv("SNAP_INSTANCE_NAME", "anchor-downloader")
+    monkeypatch.setattr("anchor_downloader.dialogs.os.access", lambda *a, **k: False)
     with pytest.raises(ValueError) as erro:
         _destination_path("/run/media/eu/NETAC/telegram")
-    assert "sudo snap connect tg-downloader:removable-media" in str(erro.value)
+    assert "sudo snap connect anchor-downloader:removable-media" in str(erro.value)
 
 
 def test_dentro_do_snap_o_disco_ja_liberado_passa(monkeypatch):
     """Com a interface conectada a escrita funciona, e o aviso nao aparece."""
-    monkeypatch.setenv("SNAP_INSTANCE_NAME", "tg-downloader")
-    monkeypatch.setattr("tg_downloader.dialogs.os.access", lambda *a, **k: True)
+    monkeypatch.setenv("SNAP_INSTANCE_NAME", "anchor-downloader")
+    monkeypatch.setattr("anchor_downloader.dialogs.os.access", lambda *a, **k: True)
     assert _destination_path("/mnt/hd/telegram") == Path("/mnt/hd/telegram")
 
 
 def test_dentro_do_snap_a_home_nao_dispara_o_aviso(monkeypatch):
     """`~/Downloads` e coberto pela interface `home`, que conecta sozinha: o
     caminho padrao nunca pode esbarrar na mensagem de disco externo."""
-    monkeypatch.setenv("SNAP_INSTANCE_NAME", "tg-downloader")
-    monkeypatch.setattr("tg_downloader.dialogs.os.access", lambda *a, **k: False)
+    monkeypatch.setenv("SNAP_INSTANCE_NAME", "anchor-downloader")
+    monkeypatch.setattr("anchor_downloader.dialogs.os.access", lambda *a, **k: False)
     destino = Path.home() / "Downloads" / "Telegram"
     assert _destination_path(str(destino)) == destino

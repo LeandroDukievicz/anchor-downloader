@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Managed by anchor-downloader installer -->
+  <defs>
+    <linearGradient id="cyberpunk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00e5ff"/>
+      <stop offset="0.5" stop-color="#06afff"/>
+      <stop offset="1" stop-color="#f13fd9"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="116" height="116" rx="8" fill="#080b12" stroke="url(#cyberpunk)" stroke-width="3"/>
+  <circle cx="64" cy="24" r="8.5" fill="none" stroke="url(#cyberpunk)" stroke-width="7"/>
+  <path d="M64 36v54M27 48h74M28 78q36 27 72 0" fill="none" stroke="url(#cyberpunk)" stroke-width="13" stroke-linecap="round"/>
+  <path d="M15 63 44 76 25 92ZM113 63 84 76l19 16Z" fill="url(#cyberpunk)"/>
+  <path d="M38 112h52" fill="none" stroke="#00e5ff" stroke-width="8" stroke-linecap="round"/>
+</svg>

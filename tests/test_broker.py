@@ -8,7 +8,7 @@ import pytest
 from telethon.errors import FloodPremiumWaitError
 from telethon.tl.types import InputPeerChannel
 
-from tg_downloader.broker import (
+from anchor_downloader.broker import (
     BrokerClient,
     BrokerServer,
     release_exception_memory,
@@ -112,7 +112,7 @@ async def test_repeated_network_timeouts_renew_the_telegram_transport(monkeypatc
     async def stalled():
         raise asyncio.TimeoutError()
 
-    monkeypatch.setattr("tg_downloader.broker.TIMEOUTS_BEFORE_CONNECTION_RESET", 2)
+    monkeypatch.setattr("anchor_downloader.broker.TIMEOUTS_BEFORE_CONNECTION_RESET", 2)
     for _ in range(2):
         with pytest.raises(asyncio.TimeoutError):
             await broker.network(stalled)

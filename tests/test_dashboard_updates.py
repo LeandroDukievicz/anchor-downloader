@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from tg_downloader import engine
-from tg_downloader.app import DownloaderApp
+from anchor_downloader import engine
+from anchor_downloader.app import DownloaderApp
 
 
 @pytest.mark.asyncio

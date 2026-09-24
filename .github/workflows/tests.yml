@@ -56,5 +56,5 @@ jobs:
           # nao para ~/.local/bin. Perguntar ao proprio pipx onde ele expos o
           # comando testa a mesma coisa sem depender do padrao da maquina.
           bin_dir="$(pipx environment --value PIPX_BIN_DIR)"
-          "$bin_dir/tg-downloader" --version
-          "$bin_dir/tg-downloader" --doctor
+          "$bin_dir/anchor-downloader" --version
+          "$bin_dir/anchor-downloader" --doctor

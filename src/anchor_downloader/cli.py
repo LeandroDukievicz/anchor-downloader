@@ -14,7 +14,7 @@ from .diagnostics import config_dir
 
 def doctor() -> int:
     local_dir = config_dir()
-    print(f"TG Downloader {__version__}")
+    print(f"Anchor Download {__version__}")
     print(f"Python: {platform.python_version()}")
     print(f"Interpretador: {sys.executable}")
     print(f"Pacote: {Path(__file__).resolve().parent}")
@@ -39,7 +39,7 @@ def doctor() -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="tg-downloader",
+        prog="anchor-downloader",
         description="Gerenciador interativo de downloads do Telegram.",
     )
     mode = parser.add_mutually_exclusive_group()

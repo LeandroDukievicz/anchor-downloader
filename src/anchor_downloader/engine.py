@@ -37,8 +37,8 @@ from .diagnostics import logger
 
 BASE_DIR = Path(
     os.environ.get(
-        "TG_DOWNLOADER_HOME",
-        Path.home() / ".config" / "telegram-downloader",
+        "ANCHOR_DOWNLOADER_HOME",
+        Path.home() / ".config" / "anchor-downloader",
     )
 ).expanduser().resolve()
 CONFIG_FILE = BASE_DIR / "config.json"
@@ -58,8 +58,8 @@ DOWNLOAD_CHUNK_SIZE = 512 * 1024
 SPEED_HISTORY_LEN = 120
 STATE_FILE_MAX_AGE = 8
 LOG_MAX_ENTRIES = 200
-MANIFEST_FILENAME = ".telegram_downloader_manifest.json"
-LOG_FILENAME = "telegram_downloader_log.txt"
+MANIFEST_FILENAME = ".anchor_downloader_manifest.json"
+LOG_FILENAME = "anchor_downloader_log.txt"
 CATEGORIES = dict.fromkeys(("Fotos", "Videos", "Musicas", "Audios", "Documentos", "Legendas", "GIFs", "Stickers", "Outros"), {})
 SUBTITLE_EXTENSIONS = {".srt", ".vtt", ".ass", ".ssa", ".sub"}
 TOPIC_PATTERN = re.compile(r"^(\d{1,3})[\.\-_\s]+(.+)$")
@@ -193,12 +193,12 @@ def read_active_instances():
 def destination_lock(destination):
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
-    handle = (destination / ".tg-downloader.lock").open("a+")
+    handle = (destination / ".anchor-downloader.lock").open("a+")
     try:
         try:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise RuntimeError("Esta pasta ja esta sendo usada por outra instancia do TG Downloader.") from None
+            raise RuntimeError("Esta pasta ja esta sendo usada por outra instancia do Anchor Download.") from None
         yield
     finally:
         handle.close()
@@ -620,7 +620,7 @@ def write_download_log(destination, state, stats, started_at):
 
     entries = list(state.get("log_entries", []))
     lines = [
-        "TG DOWNLOADER - RELATORIO GLOBAL",
+        "ANCHOR DOWNLOAD - RELATORIO GLOBAL",
         f"Inicio: {started_at}",
         f"Fim:    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"Destino: {destination}",

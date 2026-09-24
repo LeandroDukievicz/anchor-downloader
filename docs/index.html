@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TG Downloader — baixe coleções grandes do Telegram pelo terminal</title>
+<title>Anchor Download — baixe coleções grandes do Telegram pelo terminal</title>
 <meta name="description" content="TUI para baixar e organizar coleções grandes de canais e grupos do Telegram: calcula o volume antes de começar, baixa em paralelo, retoma depois de qualquer interrupção. Software livre, MIT, sem servidor intermediário.">
 <meta name="theme-color" content="#07070d">
-<link rel="icon" href="tg-downloader.svg" type="image/svg+xml">
+<link rel="icon" href="anchor-downloader.svg" type="image/svg+xml">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="TG Downloader">
+<meta property="og:title" content="Anchor Download">
 <meta property="og:description" content="Baixe coleções grandes do Telegram por um painel no terminal. Retoma o que parou, organiza por categoria e nunca carrega o histórico inteiro na memória.">
-<meta property="og:url" content="https://leandrodukievicz.github.io/tg-downloader/">
-<meta property="og:image" content="https://leandrodukievicz.github.io/tg-downloader/screenshots/dashboard.png">
+<meta property="og:url" content="https://leandrodukievicz.github.io/anchor-downloader/">
+<meta property="og:image" content="https://leandrodukievicz.github.io/anchor-downloader/screenshots/dashboard.png">
 <meta name="twitter:card" content="summary_large_image">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,8 +28,8 @@
 <header class="topbar">
   <div class="wrap topbar__inner">
     <a class="brand" href="#">
-      <img src="tg-downloader.svg" alt="" width="26" height="26">
-      <span>TG&nbsp;Downloader</span>
+      <img src="anchor-downloader.svg" alt="" width="26" height="26">
+      <span>Anchor&nbsp;Download</span>
     </a>
     <nav class="nav" aria-label="Seções">
       <a href="#painel">Painel</a>
@@ -37,7 +37,7 @@
       <a href="#instalar">Instalar</a>
       <a href="#teclado">Teclado</a>
     </nav>
-    <a class="ghost-link" href="https://github.com/LeandroDukievicz/tg-downloader">GitHub&nbsp;↗</a>
+    <a class="ghost-link" href="https://github.com/LeandroDukievicz/anchor-downloader">GitHub&nbsp;↗</a>
   </div>
 </header>
 
@@ -58,7 +58,7 @@
     </h1>
 
     <p class="lede reveal" style="--d:2">
-      TG&nbsp;Downloader baixa e organiza coleções grandes de canais e grupos do
+      Anchor&nbsp;Download baixa e organiza coleções grandes de canais e grupos do
       Telegram sem carregar o histórico inteiro na memória. Calcula o volume
       antes de começar, baixa em paralelo e retoma exatamente de onde parou.
     </p>
@@ -66,7 +66,7 @@
     <div class="cta reveal" style="--d:3">
       <div class="cmd" data-copy>
         <span class="cmd__prompt" aria-hidden="true">$</span>
-        <code>pipx install tg-downloader</code>
+        <code>pipx install anchor-downloader</code>
         <button class="cmd__copy" type="button" aria-label="Copiar comando de instalação">copiar</button>
       </div>
       <a class="btn-ghost" href="#instalar">outras formas de instalar</a>
@@ -101,13 +101,13 @@
       <span class="panel__label">demo / dados simulados</span>
       <div class="shot__frame">
         <img src="screenshots/dashboard.png"
-             alt="Painel do TG Downloader no terminal: cabeçalho com conta e sessão, volume total da fila, gráfico de transferência, lista de dez arquivos com progresso, velocidade e status, e um painel lateral com os detalhes do arquivo selecionado."
+             alt="Painel do Anchor Download no terminal: cabeçalho com conta e sessão, volume total da fila, gráfico de transferência, lista de dez arquivos com progresso, velocidade e status, e um painel lateral com os detalhes do arquivo selecionado."
              width="1848" height="1124" loading="lazy" decoding="async">
       </div>
       <figcaption>
         Tudo o que está acontecendo cabe numa tela: volume confirmado, o que já
         está disponível no destino, velocidade instantânea, pico, ETA e o estado
-        de cada arquivo. Rode <code>tg-downloader --demo</code> para ver assim,
+        de cada arquivo. Rode <code>anchor-downloader --demo</code> para ver assim,
         sem configurar conta nenhuma.
       </figcaption>
     </figure>
@@ -193,11 +193,11 @@
         Python do sistema.</p>
         <div class="cmd cmd--block" data-copy>
           <code>sudo apt install -y pipx
-pipx install tg-downloader
+pipx install anchor-downloader
 pipx ensurepath</code>
           <button class="cmd__copy" type="button" aria-label="Copiar comandos de instalação por pipx">copiar</button>
         </div>
-        <p class="fine">Atualizar: <code>pipx upgrade tg-downloader</code></p>
+        <p class="fine">Atualizar: <code>pipx upgrade anchor-downloader</code></p>
       </article>
 
       <article class="panel install__item">
@@ -206,8 +206,8 @@ pipx ensurepath</code>
         <p>Atualização automática. Para baixar num HD secundário ou externo,
         libere o acesso uma vez.</p>
         <div class="cmd cmd--block" data-copy>
-          <code>sudo snap install tg-downloader
-sudo snap connect tg-downloader:removable-media</code>
+          <code>sudo snap install anchor-downloader
+sudo snap connect anchor-downloader:removable-media</code>
           <button class="cmd__copy" type="button" aria-label="Copiar comandos de instalação por snap">copiar</button>
         </div>
         <p class="fine">O destino padrão <code>~/Downloads/Telegram</code> funciona sem liberar nada.</p>
@@ -218,8 +218,8 @@ sudo snap connect tg-downloader:removable-media</code>
         <h3>git</h3>
         <p>Para desenvolver ou rodar uma versão ainda não publicada.</p>
         <div class="cmd cmd--block" data-copy>
-          <code>git clone https://github.com/LeandroDukievicz/tg-downloader.git
-cd tg-downloader
+          <code>git clone https://github.com/LeandroDukievicz/anchor-downloader.git
+cd anchor-downloader
 ./install.sh</code>
           <button class="cmd__copy" type="button" aria-label="Copiar comandos de instalação pelo código-fonte">copiar</button>
         </div>
@@ -230,7 +230,7 @@ cd tg-downloader
     <div class="panel commands">
       <span class="panel__label">comandos</span>
       <ul>
-        <li><code>tg-downloader</code><span>inicia normalmente</span></li>
+        <li><code>anchor-downloader</code><span>inicia normalmente</span></li>
         <li><code>--demo</code><span>painel com dados simulados</span></li>
         <li><code>--offline</code><span>abre sem conectar ao Telegram</span></li>
         <li><code>--doctor</code><span>verifica a instalação sem conectar</span></li>
@@ -275,7 +275,7 @@ cd tg-downloader
       conta, nenhuma conexão, nenhum arquivo baixado.</p>
       <div class="cmd" data-copy>
         <span class="cmd__prompt" aria-hidden="true">$</span>
-        <code>tg-downloader --demo</code>
+        <code>anchor-downloader --demo</code>
         <button class="cmd__copy" type="button" aria-label="Copiar comando do modo demonstração">copiar</button>
       </div>
     </div>
@@ -287,14 +287,14 @@ cd tg-downloader
 <footer class="foot">
   <div class="wrap foot__inner">
     <p class="foot__brand">
-      <img src="tg-downloader.svg" alt="" width="20" height="20">
-      TG&nbsp;Downloader · licença MIT
+      <img src="anchor-downloader.svg" alt="" width="20" height="20">
+      Anchor&nbsp;Download · licença MIT
     </p>
     <nav class="foot__links" aria-label="Links do projeto">
-      <a href="https://github.com/LeandroDukievicz/tg-downloader">Código</a>
-      <a href="https://github.com/LeandroDukievicz/tg-downloader/issues">Problemas</a>
-      <a href="https://pypi.org/project/tg-downloader/">PyPI</a>
-      <a href="https://snapcraft.io/tg-downloader">Snap Store</a>
+      <a href="https://github.com/LeandroDukievicz/anchor-downloader">Código</a>
+      <a href="https://github.com/LeandroDukievicz/anchor-downloader/issues">Problemas</a>
+      <a href="https://pypi.org/project/anchor-downloader/">PyPI</a>
+      <a href="https://snapcraft.io/anchor-downloader">Snap Store</a>
     </nav>
     <p class="foot__note">
       Projeto independente, sem vínculo com o Telegram. Você usa a sua própria

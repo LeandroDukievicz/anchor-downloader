@@ -1,10 +1,10 @@
-# TG Downloader
+# Anchor Download
 
 Gerenciador de downloads do Telegram com interface TUI moderna, responsiva e
 orientada por teclado. Construído com Python, Textual e Telethon para baixar e
 organizar grandes coleções sem carregar todo o histórico do canal na memória.
 
-![Dashboard do TG Downloader](docs/screenshots/dashboard.png)
+![Dashboard do Anchor Download](docs/screenshots/dashboard.png)
 
 > Captura do modo de demonstração. Nenhuma conta ou transferência real foi
 > utilizada na imagem. Cada janela do programa está documentada em
@@ -67,19 +67,19 @@ qualquer pasta, sem mexer no Python do sistema:
 ```bash
 sudo apt update
 sudo apt install -y pipx
-pipx install tg-downloader
+pipx install anchor-downloader
 pipx ensurepath
 ```
 
-Abra um terminal novo e execute `tg-downloader`.
+Abra um terminal novo e execute `anchor-downloader`.
 
-Para atualizar depois, `pipx upgrade tg-downloader`.
+Para atualizar depois, `pipx upgrade anchor-downloader`.
 
 > Se você já tinha instalado pelo `install.sh`, remova o lançador antigo antes
-> — os dois disputam o mesmo caminho `~/.local/bin/tg-downloader`:
+> — os dois disputam o mesmo caminho `~/.local/bin/anchor-downloader`:
 >
 > ```bash
-> rm -f ~/.local/bin/tg-downloader
+> rm -f ~/.local/bin/anchor-downloader
 > ```
 
 ### Com snap
@@ -87,14 +87,14 @@ Para atualizar depois, `pipx upgrade tg-downloader`.
 Disponível na Snap Store, com atualização automática:
 
 ```bash
-sudo snap install tg-downloader
+sudo snap install anchor-downloader
 ```
 
 O destino padrão `~/Downloads/Telegram` funciona assim que instala. Para baixar
 num HD secundário ou externo, libere o acesso uma vez:
 
 ```bash
-sudo snap connect tg-downloader:removable-media
+sudo snap connect anchor-downloader:removable-media
 ```
 
 O aplicativo mostra esse comando pronto se você escolher um destino que ainda
@@ -112,15 +112,15 @@ sudo apt install -y git python3 python3-venv
 Clone o projeto e execute o instalador:
 
 ```bash
-git clone https://github.com/LeandroDukievicz/tg-downloader.git
-cd tg-downloader
+git clone https://github.com/LeandroDukievicz/anchor-downloader.git
+cd anchor-downloader
 ./install.sh
 ```
 
 O instalador cria:
 
 - um ambiente virtual em `.venv`;
-- o comando global `~/.local/bin/tg-downloader`;
+- o comando global `~/.local/bin/anchor-downloader`;
 - uma entrada no menu de aplicativos;
 - um atalho na área de trabalho.
 
@@ -137,7 +137,7 @@ movida, execute `./install.sh` novamente para atualizar os atalhos.
 
 ## Primeira configuração
 
-1. Execute `tg-downloader`.
+1. Execute `anchor-downloader`.
 2. Pressione `F3` para abrir as configurações.
 3. Informe o `API ID`, o `API Hash` e o número de downloads simultâneos.
 4. Selecione **Conectar**.
@@ -155,7 +155,7 @@ permissões restritas ao usuário.
 ## Telas do aplicativo
 
 Todas as imagens desta seção saem do modo de demonstração
-(`tg-downloader --demo`): os arquivos, os tamanhos e as velocidades são
+(`anchor-downloader --demo`): os arquivos, os tamanhos e as velocidades são
 simulados, a configuração vem de uma pasta temporária e o destino é fixado em
 `/home/usuario/...`. Nenhuma conta, canal, credencial ou caminho pessoal
 aparece nelas. Para refazê-las depois de mexer na interface, veja
@@ -163,7 +163,7 @@ aparece nelas. Para refazê-las depois de mexer na interface, veja
 
 ### Painel principal
 
-![Painel principal do TG Downloader](docs/screenshots/dashboard.png)
+![Painel principal do Anchor Download](docs/screenshots/dashboard.png)
 
 É a tela que abre com o programa e onde se passa quase todo o uso. De cima
 para baixo:
@@ -339,8 +339,8 @@ de partes retomáveis. O progresso usa o volume total confirmado como referênci
 Ao finalizar, o destino contém:
 
 - pastas organizadas por categoria;
-- `.telegram_downloader_manifest.json`, usado para verificação e retomada;
-- `telegram_downloader_log.txt`, com o resultado de cada arquivo.
+- `.anchor_downloader_manifest.json`, usado para verificação e retomada;
+- `anchor_downloader_log.txt`, com o resultado de cada arquivo.
 
 ## Atalhos de teclado
 
@@ -372,11 +372,11 @@ pasta de destino.
 ## Comandos disponíveis
 
 ```bash
-tg-downloader             # inicia normalmente
-tg-downloader --demo      # dashboard com dados simulados
-tg-downloader --offline   # abre sem conectar ao Telegram
-tg-downloader --doctor    # verifica a instalação sem conectar
-tg-downloader --version   # mostra a versão instalada
+anchor-downloader             # inicia normalmente
+anchor-downloader --demo      # dashboard com dados simulados
+anchor-downloader --offline   # abre sem conectar ao Telegram
+anchor-downloader --doctor    # verifica a instalação sem conectar
+anchor-downloader --version   # mostra a versão instalada
 ```
 
 O modo `--demo` é a forma mais rápida de conhecer a interface sem configurar
@@ -386,29 +386,29 @@ uma conta.
 
 | Caminho | Finalidade |
 | --- | --- |
-| `~/.config/telegram-downloader/config.json` | API e concorrência |
-| `~/.config/telegram-downloader/sessions/session_string` | Sessão autenticada |
-| `~/.config/telegram-downloader/instances/` | Estado temporário das instâncias |
-| `~/.config/telegram-downloader/broker.sock` | Canal privado do serviço compartilhado |
-| `~/.config/telegram-downloader/diagnostic.log` | Diagnóstico persistente e rotativo |
-| `<destino>/.telegram_downloader_manifest.json` | Controle dos arquivos do destino |
-| `<destino>/telegram_downloader_log.txt` | Relatório da última fila concluída |
+| `~/.config/anchor-downloader/config.json` | API e concorrência |
+| `~/.config/anchor-downloader/sessions/session_string` | Sessão autenticada |
+| `~/.config/anchor-downloader/instances/` | Estado temporário das instâncias |
+| `~/.config/anchor-downloader/broker.sock` | Canal privado do serviço compartilhado |
+| `~/.config/anchor-downloader/diagnostic.log` | Diagnóstico persistente e rotativo |
+| `<destino>/.anchor_downloader_manifest.json` | Controle dos arquivos do destino |
+| `<destino>/anchor_downloader_log.txt` | Relatório da última fila concluída |
 
 Esses arquivos estão ignorados pelo Git. Nunca publique `config.json` nem
 `session_string`.
 
-Instalado como snap, tudo o que está em `~/.config/telegram-downloader/` passa
-para `~/snap/tg-downloader/common/`: o confinamento não dá acesso a pastas
+Instalado como snap, tudo o que está em `~/.config/anchor-downloader/` passa
+para `~/snap/anchor-downloader/common/`: o confinamento não dá acesso a pastas
 ocultas do primeiro nível da sua pasta pessoal. Os dois arquivos gravados no
-destino não mudam de lugar. Use `tg-downloader --doctor` para ver os caminhos
-em uso na sua instalação.
+destino não mudam de lugar. Use `anchor-downloader --doctor` para ver os
+caminhos em uso na sua instalação.
 
 ## Diagnóstico
 
 Execute:
 
 ```bash
-tg-downloader --doctor
+anchor-downloader --doctor
 ```
 
 O diagnóstico informa as versões, o interpretador utilizado e se a configuração
@@ -438,7 +438,7 @@ Observações úteis:
 Se instalou pelo pipx:
 
 ```bash
-pipx upgrade tg-downloader
+pipx upgrade anchor-downloader
 ```
 
 Se instalou a partir do código-fonte, dentro do diretório do projeto:
@@ -454,7 +454,7 @@ git pull --ff-only
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[dev]'
 .venv/bin/python -m pytest
-.venv/bin/python -m tg_downloader --demo
+.venv/bin/python -m anchor_downloader --demo
 ```
 
 As capturas de [Telas do aplicativo](#telas-do-aplicativo) são geradas pela
@@ -473,9 +473,9 @@ o Chromium instalado — é o que respeita a fonte monoespacada do terminal.
 Estrutura principal:
 
 ```text
-tg-downloader/
+anchor-downloader/
 ├── docs/screenshots/       # imagens da documentação
-├── src/tg_downloader/
+├── src/anchor_downloader/
 │   ├── app.py              # aplicação Textual e navegação
 │   ├── auth.py             # autenticação segura no Telegram
 │   ├── dialogs.py          # modais e formulários

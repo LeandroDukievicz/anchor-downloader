@@ -129,7 +129,7 @@ async def _probe(path: Path) -> None:
 
 def _spawn_broker():
     process = subprocess.Popen(
-        [sys.executable, "-m", "tg_downloader.broker"],
+        [sys.executable, "-m", "anchor_downloader.broker"],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -155,7 +155,7 @@ async def ensure_broker(path: Path | None = None) -> None:
                 _spawn_broker()
                 spawned = True
             await asyncio.sleep(0.1)
-    raise RuntimeError("Servico local nao iniciou. Execute tg-downloader --doctor.")
+    raise RuntimeError("Servico local nao iniciou. Execute anchor-downloader --doctor.")
 
 
 class BrokerServer:

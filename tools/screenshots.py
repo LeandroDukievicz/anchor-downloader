@@ -50,8 +50,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 def _sandbox() -> Path:
     """Diretorio de configuracao descartavel, isolado do usuario real."""
-    directory = Path(tempfile.mkdtemp(prefix="tg-screenshots-"))
-    os.environ["TG_DOWNLOADER_HOME"] = str(directory)
+    directory = Path(tempfile.mkdtemp(prefix="anchor-screenshots-"))
+    os.environ["ANCHOR_DOWNLOADER_HOME"] = str(directory)
     return directory
 
 
@@ -61,8 +61,8 @@ SANDBOX = _sandbox()
 
 from textual.widgets import Input  # noqa: E402
 
-from tg_downloader.app import DownloaderApp  # noqa: E402
-from tg_downloader.dialogs import (  # noqa: E402
+from anchor_downloader.app import DownloaderApp  # noqa: E402
+from anchor_downloader.dialogs import (  # noqa: E402
     ConfirmScreen,
     NewDownloadScreen,
     PromptScreen,
@@ -237,7 +237,7 @@ def _browser() -> str:
 def to_png(svg_dir: Path, names: list[str]) -> None:
     """Rasteriza cada SVG no tamanho exato do seu viewBox."""
     browser = _browser()
-    profile = Path(tempfile.mkdtemp(prefix="tg-screenshots-chrome-"))
+    profile = Path(tempfile.mkdtemp(prefix="anchor-screenshots-chrome-"))
     OUTPUT.mkdir(parents=True, exist_ok=True)
     try:
         for name in names:
@@ -274,7 +274,7 @@ def main() -> int:
     parser.add_argument("--keep-svg", action="store_true",
                         help="manter os SVG intermediarios para inspecao")
     args = parser.parse_args()
-    svg_dir = Path(tempfile.mkdtemp(prefix="tg-screenshots-svg-"))
+    svg_dir = Path(tempfile.mkdtemp(prefix="anchor-screenshots-svg-"))
     try:
         names = asyncio.run(capture(svg_dir))
         print(f"{len(names)} telas capturadas; convertendo para PNG:")

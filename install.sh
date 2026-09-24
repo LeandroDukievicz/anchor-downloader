@@ -12,7 +12,7 @@ case "${1:-}" in
     "$VENV_DIR/bin/python" -m pip install -e "$PROJECT_DIR"
     ;;
   --skip-deps)
-    "$VENV_DIR/bin/python" -c 'import textual, telethon, tg_downloader'
+    "$VENV_DIR/bin/python" -c 'import textual, telethon, anchor_downloader'
     ;;
   *)
     printf 'Uso: %s [--skip-deps]\n' "$0" >&2
@@ -29,11 +29,11 @@ import subprocess
 import sys
 
 project = Path(sys.argv[1]).resolve()
-marker = "Managed by tg-downloader installer"
-launcher = Path.home() / ".local" / "bin" / "tg-downloader"
+marker = "Managed by anchor-downloader installer"
+launcher = Path.home() / ".local" / "bin" / "anchor-downloader"
 data_dir = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share")))
-icon = data_dir / "icons" / "hicolor" / "scalable" / "apps" / "tg-downloader.svg"
-application = data_dir / "applications" / "tg-downloader.desktop"
+icon = data_dir / "icons" / "hicolor" / "scalable" / "apps" / "anchor-downloader.svg"
+application = data_dir / "applications" / "anchor-downloader.desktop"
 desktop_dir = Path.home() / "Desktop"
 if shutil.which("xdg-user-dir"):
     result = subprocess.run(
@@ -41,7 +41,7 @@ if shutil.which("xdg-user-dir"):
     )
     if result.returncode == 0 and result.stdout.strip():
         desktop_dir = Path(result.stdout.strip())
-desktop = desktop_dir / "tg-downloader.desktop"
+desktop = desktop_dir / "anchor-downloader.desktop"
 
 def exec_quote(value):
     value = str(value).replace("%", "%%")
@@ -52,11 +52,11 @@ def exec_quote(value):
 launcher_text = (
     f"#!/bin/sh\n# {marker}\n"
     f"exec {shlex.quote(str(project / '.venv' / 'bin' / 'python'))} "
-    '-m tg_downloader "$@"\n'
+    '-m anchor_downloader "$@"\n'
 )
 desktop_text = (
     f"[Desktop Entry]\n# {marker}\n"
-    "Type=Application\nVersion=1.0\nName=TG Downloader\n"
+    "Type=Application\nVersion=1.0\nName=Anchor Download\n"
     "Comment=Gerenciador de downloads do Telegram\n"
     f"Exec={exec_quote(launcher)}\nIcon={icon}\n"
     "Terminal=true\nCategories=Network;FileTransfer;\n"
@@ -64,7 +64,7 @@ desktop_text = (
 )
 artifacts = {
     launcher: (launcher_text, 0o755),
-    icon: ((project / "src" / "tg_downloader" / "assets" / "tg-downloader.svg").read_text(), 0o644),
+    icon: ((project / "src" / "anchor_downloader" / "assets" / "anchor-downloader.svg").read_text(), 0o644),
     application: (desktop_text, 0o644),
     desktop: (desktop_text, 0o755),
 }
@@ -88,6 +88,6 @@ if shutil.which("gio"):
     if result.returncode:
         print("O ambiente grafico pode solicitar 'Permitir iniciar' no primeiro uso do atalho.")
 if str(launcher.parent) not in os.environ.get("PATH", "").split(os.pathsep):
-    print(f"Inclua {launcher.parent} no PATH para chamar tg-downloader neste terminal.")
-print("Pronto. Execute tg-downloader de qualquer pasta.")
+    print(f"Inclua {launcher.parent} no PATH para chamar anchor-downloader neste terminal.")
+print("Pronto. Execute anchor-downloader de qualquer pasta.")
 PY

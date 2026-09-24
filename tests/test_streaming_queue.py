@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 from telethon.tl.types import MessageMediaPhoto, PhotoEmpty
 
-from tg_downloader import engine
+from anchor_downloader import engine
 
 
 def media_message(message_id):
