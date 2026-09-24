@@ -1,19 +1,21 @@
 /* Anchor Download — página do projeto.
    A paleta não foi inventada aqui: é a do ícone do app
-   (#00e5ff → #06afff → #f13fd9 sobre #080b12), para a página e o programa
-   serem a mesma coisa. O layout imita a TUI de propósito: painel com o rótulo
-   entalhado na borda, monoespaçada em tudo, e o gradiente ciano→magenta como
-   assinatura. */
+   (#00e5ff → #06afff → #f13fd9), para a página e o programa serem a mesma
+   coisa. O fundo é azul petróleo puxado para quase preto — mesma família de
+   cor do gradiente, escuro o bastante para as capturas do terminal não
+   parecerem coladas num retângulo de outra cor. O layout imita a TUI de
+   propósito: painel com o rótulo entalhado na borda, monoespaçada em tudo, e
+   o gradiente ciano→magenta como assinatura. */
 
 :root {
   color-scheme: dark;
 
-  --bg:        #07070d;
-  --bg-soft:   #0a0b14;
-  --panel:     #0b0c18;
-  --panel-hi:  #10121f;
-  --line:      #1e2138;
-  --line-hot:  #303760;
+  --bg:        #04141a;
+  --bg-soft:   #071a22;
+  --panel:     #081e26;
+  --panel-hi:  #0c2731;
+  --line:      #1b3a46;
+  --line-hot:  #2c5a6d;
 
   --cyan:      #00e5ff;
   --blue:      #06afff;
@@ -75,7 +77,7 @@ code { font-family: var(--mono); font-size: .9em; color: var(--cyan); }
   top: .5rem;
   z-index: 100;
   background: var(--cyan);
-  color: #04040a;
+  color: #031016;
   padding: .5rem 1rem;
   font-weight: 600;
 }
