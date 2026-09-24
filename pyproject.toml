@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]  # PEP 639: license como expressao SPDX
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,6 +8,23 @@ version = "7.3.0"
 description = "Downloader de arquivos do Telegram com painel interativo no terminal"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Leandro Dukievicz" }]
+keywords = ["telegram", "download", "tui", "terminal", "textual", "telethon"]
+# Linux de propósito: o serviço compartilhado usa sockets AF_UNIX e o log usa
+# `fcntl` para travar o arquivo entre instâncias. Classificador é metadado, não
+# trava instalação — em Windows o `import fcntl` falha na primeira execução.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console :: Curses",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Communications :: Chat",
+    "Topic :: Internet :: File Transfer Protocol (FTP)",
+    "Topic :: Terminals",
+]
 dependencies = [
     "textual>=8.2.8,<9",
     "telethon>=1.44,<1.45",
@@ -15,7 +32,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-asyncio>=0.24"]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "pyflakes>=3"]
+
+[project.urls]
+Homepage = "https://leandrodukievicz.github.io/tg-downloader/"
+Repository = "https://github.com/LeandroDukievicz/tg-downloader"
+Issues = "https://github.com/LeandroDukievicz/tg-downloader/issues"
 
 [project.scripts]
 tg-downloader = "tg_downloader.cli:main"
