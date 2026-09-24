@@ -12,7 +12,7 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 
 ## Recursos
 
-- Abertura de 5 a 7 segundos que conecta a conta enquanto roda: quando o
+- Abertura de 4 a 5 segundos que conecta a conta enquanto roda: quando o
   painel abre, a sessao ja esta de pe.
 - Dashboard cyberpunk para acompanhar arquivos, velocidade, ETA e progresso.
 - Cálculo do tamanho total da coleção antes do primeiro download.
@@ -179,13 +179,13 @@ na areia, algas balançando na corrente e um polvo pairando ao lado do recife.
 ![Marca formada ao fim da abertura](docs/screenshots/abertura-marca.png)
 
 Quando a âncora firma, a marca se escreve na água e a abertura entrega o
-painel. Ela dura de 5 a 7 segundos, e esse tempo não é gasto à toa: a conexão
+painel. Ela dura de 4 a 5 segundos, e esse tempo não é gasto à toa: a conexão
 com o Telegram acontece por baixo, em paralelo. Quem já tem sessão salva chega
 ao painel com a conta ligada, sem esperar mais por isso.
 
 O tempo se ajusta ao que está acontecendo. Assim que a conexão responde, a
 abertura termina no próximo marco visual; se a rede estiver ruim, ela entrega o
-painel no teto de 7 segundos e a conexão continua em segundo plano. Qualquer
+painel no teto de 5 segundos e a conexão continua em segundo plano. Qualquer
 tecla pula a animação, `--sem-abertura` a desliga, e em terminal pequeno demais
 ela nem chega a aparecer.
 

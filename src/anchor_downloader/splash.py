@@ -34,11 +34,11 @@ from .widgets import color_at, CYAN
 # teto existe para a abertura nunca virar sala de espera quando a rede esta
 # ruim. Entre os dois quem manda e a conexao: assim que ela responde, a abertura
 # termina no proximo marco visual.
-DESCENT_SECONDS = 3.1
-IMPACT_SECONDS = 0.8
-BRAND_SECONDS = 1.6
-FLOOR_SECONDS = DESCENT_SECONDS + IMPACT_SECONDS + BRAND_SECONDS  # 5.5
-CEILING_SECONDS = 7.0
+DESCENT_SECONDS = 2.2
+IMPACT_SECONDS = 0.6
+BRAND_SECONDS = 1.2
+FLOOR_SECONDS = DESCENT_SECONDS + IMPACT_SECONDS + BRAND_SECONDS  # 4.0
+CEILING_SECONDS = 5.0
 FRAME_SECONDS = 1 / 24
 
 # Abaixo disto nao cabe o desenho, e uma abertura espremida e pior do que

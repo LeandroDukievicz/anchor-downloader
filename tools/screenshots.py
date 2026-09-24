@@ -130,7 +130,10 @@ async def _opening(svg_dir: Path, names: list[str]) -> None:
     # No instante exato do piso a abertura se fecha e quem aparece e o painel.
     # O ultimo quadro antes disso e onde a marca ja esta inteira na tela.
     ultimo = splash.FLOOR_SECONDS - splash.FRAME_SECONDS
-    for name, target in (("abertura", 2.2), ("abertura-marca", ultimo)):
+    # A descida e pedida em fracao, nao em segundos: um instante fixo deixaria
+    # de ser meio da queda no dia em que o tempo da abertura mudar.
+    descendo = splash.DESCENT_SECONDS * 0.7
+    for name, target in (("abertura", descendo), ("abertura-marca", ultimo)):
         app = DownloaderApp(demo=True, opening=True)
         app.last_destination = DESTINATION
         async with app.run_test(size=WIDE) as pilot:
