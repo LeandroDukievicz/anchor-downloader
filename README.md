@@ -171,8 +171,10 @@ aparece nelas. Para refazê-las depois de mexer na interface, veja
 
 ![Âncora descendo na abertura](docs/screenshots/abertura.png)
 
-A âncora desce pela água, fundeia no leito e levanta areia. A corrente
-acompanha da superfície, e as bolhas sobem ao fundo.
+A âncora desce pela água soltando um rastro de bolhas, fundeia no leito e
+levanta areia. A corrente acompanha da superfície. No caminho ela passa por um
+cardume, e o fundo tem vida: corais nos dois cantos, uma estrela do mar pousada
+na areia, algas balançando na corrente e um polvo pairando ao lado do recife.
 
 ![Marca formada ao fim da abertura](docs/screenshots/abertura-marca.png)
 

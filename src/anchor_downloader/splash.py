@@ -1,5 +1,10 @@
 """Abertura: a ancora desce, fundeia, e o mar entrega a marca.
 
+O mar nao e cenario vazio: um cardume atravessa a agua, o leito tem corais nos
+cantos, uma estrela do mar e algas balancando, e um polvo paira ao lado do
+recife. Nada disso e sorteado — cada posicao sai de um seno, pelo motivo
+descrito em `_noise`.
+
 O desenho de cada quadro e uma funcao pura de (tempo, largura, altura), sem
 tocar em widget nenhum. Isso deixa a animacao testavel sem subir a interface e
 permite renderizar quadro a quadro para conferir o resultado com os olhos.
@@ -52,6 +57,15 @@ BED_FILL = "#16232f"  # terra abaixo do leito
 BED_GLYPH = "#33485f" # relevo do leito
 SAND = "#c6b489"      # areia levantada no impacto
 CHAIN = "#5d738c"     # corrente que desce da superficie
+CORAL_ROSE = "#e2596f"  # coral de leque
+CORAL_AMBER = "#e59a3c" # coral tubular
+KELP = "#2f9e6b"      # alga balancando na corrente
+STARFISH = "#f08a4b"   # estrela do mar no leito
+OCTOPUS_SKIN = "#a45bd6"  # polvo, a unica cor quente no meio-fundo
+OCTOPUS_EYE = "#ffe9b5"
+
+# Os peixes nao sao todos da mesma cor: um cardume de uma cor so vira mancha.
+FISH_TONES = ("#ffd75f", "#36ef94", "#f02ce0", "#00d9ef", "#ff9a5f")
 
 ANCHOR = (
     "        ▄███▄        ",
@@ -86,6 +100,41 @@ GLYPH_HEIGHT = 5
 
 SEABED = "▂▃▂▄▃▂▃▄▂▃▂▄▃▂▃▄▃▂▄▂▃"
 
+# Recife. Cada desenho e ancorado pela ultima linha, que encosta no leito.
+CORAL_FAN = (
+    "  ▄ ▄  ",
+    " ▄█▄█▄ ",
+    "  ▀█▀  ",
+    "   █   ",
+)
+CORAL_TUBE = (
+    "▄   ▄",
+    "█ ▄ █",
+    "█ █ █",
+    "▀▄█▄▀",
+)
+STARFISH_SHAPE = (
+    "  ▄  ",
+    "▀▄█▄▀",
+    " ▀ ▀ ",
+)
+
+# Polvo: cabeca fixa, tentaculos desenhados a parte porque se mexem.
+OCTOPUS_HEAD = (
+    "  ▄███▄  ",
+    " ███████ ",
+    " ███████ ",
+    "  █████  ",
+)
+OCTOPUS_WIDTH = len(OCTOPUS_HEAD[0])
+OCTOPUS_EYES = (2, 6)  # colunas, na segunda linha da cabeca
+
+# Peixes de tres tamanhos, sempre em par (direita/esquerda) para o cardume
+# ficar igual nos dois sentidos.
+FISH_RIGHT = ("><>", "><(((°>", "><((°>")
+FISH_LEFT = ("<><", "<°)))><", "<°))><")
+FISH_COUNT = 6
+
 
 def _mix(start: str, end: str, amount: float) -> str:
     amount = max(0.0, min(1.0, amount))
@@ -94,6 +143,15 @@ def _mix(start: str, end: str, amount: float) -> str:
         for i in (1, 3, 5)
     ]
     return "#" + "".join(f"{channel:02x}" for channel in channels)
+
+
+def _noise(seed: float) -> float:
+    """Ruido deterministico: a mesma semente devolve sempre o mesmo numero.
+
+    Faz o papel de `random` sem trazer o problema dele — a abertura precisa
+    desenhar o mesmo quadro toda vez para poder ser testada e capturada.
+    """
+    return abs(math.sin(seed * 12.9898) * 43758.5453)
 
 
 def _ease_in(value: float) -> float:
@@ -198,6 +256,130 @@ def _paint_bed(scene: Scene) -> None:
             scene.put(row, column, " ")
 
 
+def _paint_shape(scene: Scene, shape: tuple[str, ...], left: int, bottom: int,
+                 tone: str, fade: float) -> None:
+    """Desenha uma figura apoiada pela ultima linha em `bottom`.
+
+    Ancorar pelo pe, e nao pelo topo, deixa coral e estrela encostados no leito
+    qualquer que seja a altura do terminal.
+    """
+    for line_index, line in enumerate(shape):
+        row = bottom - len(shape) + 1 + line_index
+        for offset, glyph in enumerate(line):
+            if glyph != " ":
+                scene.put(row, left + offset, glyph, _mix(tone, ABYSS, fade))
+
+
+def _paint_kelp(scene: Scene, elapsed: float, column: int, height: int,
+                phase: float) -> None:
+    """Alga balancando: a mesma curva da onda da superficie, mais lenta."""
+    for step in range(height):
+        sway = math.sin(elapsed * 1.1 + phase + step * 0.55)
+        scene.put(scene.bed_row - 1 - step,
+                  column + (1 if sway > 0.4 else -1 if sway < -0.4 else 0),
+                  ")" if sway > 0 else "(",
+                  _mix(KELP, ABYSS, 0.5 - min(0.36, step * 0.07)))
+
+
+def _paint_reef(scene: Scene, elapsed: float) -> None:
+    """Os dois cantos do leito: corais, algas e a estrela do mar.
+
+    Tudo mora nas bordas de proposito. A ancora fundeia no meio e e desenhada
+    por cima; o que ficasse no centro so apareceria nos primeiros segundos.
+    """
+    bottom = scene.bed_row - 1
+    # Coluna onde o miolo comeca a ser da ancora.
+    edge = max(0, scene.axis - ANCHOR_WIDTH // 2 - 2)
+
+    _paint_kelp(scene, elapsed, 1, 6, 0.0)
+    _paint_shape(scene, CORAL_FAN, 3, bottom, CORAL_ROSE, 0.2)
+    _paint_shape(scene, STARFISH_SHAPE, min(11, edge), bottom, STARFISH, 0.12)
+
+    right = scene.width - 1
+    _paint_kelp(scene, elapsed, right - 1, 5, 1.7)
+    _paint_shape(scene, CORAL_TUBE, right - 7, bottom, CORAL_AMBER, 0.2)
+    _paint_shape(scene, CORAL_FAN, right - 14, bottom, CORAL_ROSE, 0.38)
+
+    # Num terminal largo os dois cantos deixam o meio do leito deserto. Duas
+    # toceiras de alga, mais apagadas, preenchem o vao sem disputar espaco com
+    # a ancora nem roubar a atencao dos corais.
+    if scene.width >= 72:
+        for column, phase in ((int(scene.width * 0.26), 2.4),
+                              (int(scene.width * 0.74), 3.9)):
+            _paint_kelp(scene, elapsed, column, 4, phase)
+            _paint_kelp(scene, elapsed, column + 2, 3, phase + 1.2)
+
+
+def _paint_octopus(scene: Scene, elapsed: float) -> None:
+    """O polvo paira ao lado do recife, subindo e descendo com a corrente."""
+    left = scene.width - OCTOPUS_WIDTH - 3
+    if left <= scene.axis + ANCHOR_WIDTH // 2:
+        return  # terminal estreito: nao sobra lado onde ele nao fique escondido
+    # Alto o bastante para os tentaculos nao encostarem no coral: o coral
+    # mais alto tem quatro linhas, e o polvo tem seis.
+    top = scene.bed_row - 11 + (1 if math.sin(elapsed * 0.8) > 0.35 else 0)
+    tone = _mix(OCTOPUS_SKIN, ABYSS, 0.3)
+
+    for line_index, line in enumerate(OCTOPUS_HEAD):
+        for offset, glyph in enumerate(line):
+            if glyph != " ":
+                scene.put(top + line_index, left + offset, glyph, tone)
+    for offset in OCTOPUS_EYES:
+        scene.put(top + 1, left + offset, "▀", OCTOPUS_EYE)
+
+    # Tentaculos: o mesmo par de linhas, cada um enrolando para um lado no seu
+    # tempo — e o que tira o polvo de figura recortada e colada na agua.
+    for index in range(4):
+        column = left + 1 + index * 2
+        sway = math.sin(elapsed * 2.1 + index * 0.9)
+        scene.put(top + len(OCTOPUS_HEAD), column, "│", tone)
+        scene.put(top + len(OCTOPUS_HEAD) + 1, column,
+                  "╰" if sway > 0 else "╯", _mix(OCTOPUS_SKIN, ABYSS, 0.45))
+
+
+def _paint_fish(scene: Scene, elapsed: float) -> None:
+    """Cardume atravessando a agua, cada peixe na sua faixa e no seu ritmo.
+
+    Metade nada para um lado, metade para o outro, e o desenho vira de acordo:
+    peixe atravessando de costas estraga a cena inteira.
+    """
+    # Faixa de agua aberta: abaixo disso comeca o recife, e peixe desenhado em
+    # cima de coral vira rabisco.
+    lanes = max(1, scene.bed_row - 8)
+    span = scene.width + 14
+    for index in range(FISH_COUNT):
+        lane = 2 + int(_noise(index * 7 + 3) % lanes)
+        row = lane + round(math.sin(elapsed * 1.5 + index))  # sobe e desce nadando
+        if not 0 < row < scene.bed_row:
+            continue
+        to_the_right = index % 2 == 0
+        shape = (FISH_RIGHT if to_the_right else FISH_LEFT)[index % len(FISH_RIGHT)]
+        speed = 4.0 + (index % 4) * 2.3
+        travel = int((_noise(index * 13 + 5) % span + elapsed * speed) % span)
+        left = travel - 7 if to_the_right else scene.width + 6 - travel
+        tone = _mix(FISH_TONES[index % len(FISH_TONES)], ABYSS,
+                    0.2 + 0.45 * (row / max(1, scene.bed_row)))
+        for offset, glyph in enumerate(shape):
+            scene.put(row, left + offset, glyph, tone)
+
+
+def _paint_wake(scene: Scene, elapsed: float, top_row: int, landed: bool) -> None:
+    """Bolhas que a ancora solta enquanto afunda.
+
+    Nascem no fuste e ficam para tras conforme a queda acelera: e esse rastro
+    que faz a descida parecer rapida, mesmo com a ancora sempre no centro.
+    """
+    if landed:
+        return
+    for index in range(9):
+        row = top_row - 1 - index
+        if not 0 < row < scene.bed_row:
+            continue
+        wobble = math.sin(elapsed * 3.0 + index * 1.1) * (1 + index * 0.35)
+        scene.put(row, scene.axis + round(wobble), "∘°·"[index % 3],
+                  _mix(CYAN, ABYSS, 0.2 + index * 0.07))
+
+
 def _paint_bubbles(scene: Scene, elapsed: float) -> None:
     """Bolhas subindo em posicoes deterministicas.
 
@@ -205,7 +387,7 @@ def _paint_bubbles(scene: Scene, elapsed: float) -> None:
     execucao e um teste consegue afirmar sobre ela.
     """
     for index in range(18):
-        column = int(abs(math.sin(index * 12.9898) * 43758.5453) % scene.width)
+        column = int(_noise(index) % scene.width)
         speed = 2.2 + (index % 5) * 0.8
         phase = (index * 0.37 + elapsed * speed / max(1, scene.bed_row)) % 1.0
         row = int((1 - phase) * (scene.bed_row - 2)) + 1
@@ -256,6 +438,11 @@ def _paint_impact(scene: Scene, since: float) -> None:
         for lift in range(lift_count):
             scene.put(scene.bed_row - 1 - lift, column,
                       "▪" if lift == 0 else "·" if lift == 1 else "˙", tone)
+    # No choque escapa ar de baixo da ancora; as bolhas sobem junto com a areia.
+    for index in range(6):
+        column = scene.axis + round(math.sin(index * 2.3) * (spread - 2))
+        scene.put(scene.bed_row - 2 - int((ratio * 7 + index) % 5), column, "∘",
+                  _mix(CYAN, ABYSS, 0.25 + ratio * 0.45))
 
 
 def _brand_progress(elapsed: float) -> tuple[str, str, float]:
@@ -305,10 +492,16 @@ def render_frame(elapsed: float, width: int, height: int, status: str = "") -> T
     scene = Scene(width, height)
     _paint_water(scene, elapsed)
     _paint_bed(scene)
+    _paint_fish(scene, elapsed)
     _paint_bubbles(scene, elapsed)
+    # Recife e polvo por ultimo: sao primeiro plano, entao tapam o que passa
+    # atras deles em vez de sair rabiscado por peixe e bolha.
+    _paint_reef(scene, elapsed)
+    _paint_octopus(scene, elapsed)
 
     top_row, landed = _anchor_row(elapsed, scene)
     _paint_chain(scene, top_row)
+    _paint_wake(scene, elapsed, top_row, landed)
 
     if landed and elapsed - DESCENT_SECONDS < IMPACT_SECONDS:
         _paint_impact(scene, elapsed - DESCENT_SECONDS)
