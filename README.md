@@ -460,6 +460,143 @@ Observações úteis:
 - O serviço executa uma coleta preventiva a cada 30 segundos. Blocos já gravados
   e ciclos de exceções transitórias são liberados sem interromper a fila.
 
+## Segurança
+
+### O que o programa protege, e o que ele não pode proteger
+
+O Anchor Download roda inteiro na sua máquina, com a sua conta de usuário.
+Não existe servidor intermediário: o programa fala MTProto direto com o
+Telegram, usando o seu `API ID`, o seu `API Hash` e uma sessão autenticada que
+nunca sai do disco local.
+
+A fronteira que ele defende é **outro usuário da mesma máquina**. Tudo que
+carrega credencial é criado fechado no dono, e a defesa é ativa, não herdada da
+`umask`: uma pasta que já existia aberta — de uma instalação antiga, ou criada
+sob uma `umask` permissiva — é corrigida na próxima execução.
+
+O que ele **não** pode proteger, porque nenhum programa consegue:
+
+- Outro processo rodando como **o seu próprio usuário** lê tudo o que você lê.
+  Não existe barreira aí; a barreira é a sua conta.
+- **Roubo do disco ou do computador.** A defesa correta é criptografia de disco
+  (LUKS), não permissão de arquivo.
+- **Acesso de root.** Root lê qualquer coisa, por definição.
+- O que você faz com os arquivos **depois** de baixados.
+
+### Onde ficam as credenciais
+
+| Arquivo | Conteúdo | Permissão |
+| --- | --- | --- |
+| `~/.config/anchor-downloader/` | tudo abaixo | `700` (só você entra) |
+| `config.json` | `API ID` e `API Hash` | `600` |
+| `sessions/session_string` | sessão autenticada | `600` |
+| `instances/*.lock`, `instances/state_slot_*.json` | estado entre janelas | `600` |
+| `broker.sock` | canal do serviço compartilhado | `600` |
+| `<destino>/.anchor-downloader.lock` | trava do destino | `600` |
+
+As gravações de credencial são atômicas: o conteúdo vai para um arquivo
+temporário na mesma pasta, o modo é ajustado **antes** de qualquer byte ser
+gravado, e só então `os.replace` troca o arquivo final. Não existe instante em
+que um arquivo de credencial exista com permissão frouxa, nem um pela metade.
+
+O `API Hash` aparece mascarado na tela de configurações. O `--doctor` mostra
+caminhos e versões, e nunca valores.
+
+### O serviço compartilhado
+
+Várias janelas dividem uma única conexão com o Telegram através de um socket
+`AF_UNIX` em `~/.config/anchor-downloader/broker.sock`. Quem fala com esse
+socket fala com a sua conta autenticada, então o acesso a ele é o ponto mais
+sensível do programa.
+
+Ele é protegido em duas camadas, de propósito:
+
+1. O socket é `chmod 600` logo após ser criado.
+2. Ele nasce dentro de uma pasta `700`.
+
+A segunda camada existe porque a primeira tem uma janela: entre o `bind` e o
+`chmod` existe um instante em que o socket herda a `umask`. Dentro de uma pasta
+que ninguém mais pode atravessar, essa janela não é alcançável.
+
+O socket é local e só aceita quadros com tamanho declarado e limitado, o que
+impede que um cliente com defeito ou malicioso force o serviço a alocar memória
+sem limite. Erros vindos do Telegram são traduzidos antes de voltar para a
+interface, justamente para que uma mensagem de erro do servidor não carregue
+dado de sessão junto.
+
+### Nome de arquivo é entrada não confiável
+
+O nome de cada arquivo vem de quem publicou a mídia no canal — não de você.
+Antes de virar caminho no disco, ele passa por um saneamento que substitui
+`/`, `\`, `:`, `*`, `?`, `"`, `<`, `>`, `|` e todos os caracteres de controle,
+inclusive o byte nulo. Um nome como `../../../../etc/passwd` vira
+`.._.._.._.._etc_passwd`: um único componente, dentro da pasta de destino. Um
+nome que seja só `..` ou `.` vira `arquivo`.
+
+O nome também é cortado em 200 bytes, respeitando caracteres multibyte, para
+que um nome absurdamente longo não derrube a gravação.
+
+O manifesto (`.anchor_downloader_manifest.json`) fica **dentro** da pasta de
+destino e por isso também é entrada não confiável — ele pode ter sido editado.
+Todo caminho lido dele é resolvido e conferido contra a raiz do destino, e
+qualquer coisa que escape, que aponte para a própria raiz ou que seja um link
+simbólico é recusada.
+
+Isso tudo está preso por testes em `tests/test_security.py`, que rodam contra o
+pior caso: `umask` `000`.
+
+### O que vai para o log
+
+O log de diagnóstico registra tipo de erro, fase da fila e nome de arquivo.
+Ele **não** registra `API ID`, `API Hash`, string de sessão, telefone nem
+código de verificação. Nenhuma das telas de autenticação escreve o que você
+digita.
+
+Dá para conferir isso na sua própria instalação, sem confiar na palavra de
+ninguém:
+
+```bash
+grep -c "$(python3 -c "import json,pathlib;print(json.loads((pathlib.Path.home()/'.config/anchor-downloader/config.json').read_text())['api_hash'])")" \
+  ~/.config/anchor-downloader/diagnostic.log*
+```
+
+O resultado esperado é `0` em todos os arquivos.
+
+### Cadeia de fornecimento
+
+- As dependências são fixadas por faixa de versão compatível no
+  `pyproject.toml`, e a build do PyPI usa **trusted publishing** (OIDC): não
+  existe token de publicação guardado no repositório.
+- Cada workflow declara `permissions` com o mínimo que precisa. Só o job que
+  publica no PyPI recebe `id-token: write`, e ele roda num ambiente separado.
+- O snap usa confinamento `strict`. Ele pede `network` (saída, para o Telegram)
+  e `home` (o destino padrão). O acesso a disco externo fica desligado até você
+  conectar a interface à mão.
+- `config.json`, `session_string` e `*.session` estão no `.gitignore`. Nunca
+  publique nenhum dos três.
+
+### Se você suspeitar que a sessão vazou
+
+A sessão salva é independente da sua senha: quem tiver o arquivo age como você
+até a sessão ser encerrada. Trocar a senha do Telegram **não** basta.
+
+1. No aplicativo do Telegram, vá em **Configurações → Dispositivos** e encerre
+   a sessão correspondente.
+2. Apague `~/.config/anchor-downloader/sessions/session_string`.
+3. Se o `API Hash` também pode ter vazado, gere outro em
+   [my.telegram.org](https://my.telegram.org) e atualize em `F3`.
+
+Se você usa o programa desde versões antigas, confira se sobraram arquivos que
+o programa atual não gerencia mais:
+
+```bash
+ls -la ~/.config/anchor-downloader/
+```
+
+Um `session.session` ali é uma sessão autenticada de uma versão anterior, que
+continua válida no Telegram. Ele não é mais usado: encerre a sessão
+correspondente em **Dispositivos** e apague o arquivo.
+
 ## Atualização
 
 Se instalou pelo pipx:

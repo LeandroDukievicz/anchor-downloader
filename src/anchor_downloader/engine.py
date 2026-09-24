@@ -133,10 +133,31 @@ async def create_client():
     return client, concurrency
 
 
+def secure_dir(path):
+    """Cria o diretorio fechado no dono, e conserta quem ja existia aberto.
+
+    `mkdir(mode=...)` nao mexe em diretorio que ja existe, e na criacao a umask
+    ainda pode afrouxar o modo pedido. Sem o chmod explicito, uma pasta criada
+    por uma versao antiga deste programa — ou por uma umask permissiva — fica
+    legivel para os outros usuarios da maquina para sempre.
+    """
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with contextlib.suppress(OSError):
+        path.chmod(0o700)
+    return path
+
+
+def secure_handle(handle):
+    """Fecha no dono um arquivo ja aberto, sem depender da umask."""
+    with contextlib.suppress(OSError):
+        os.fchmod(handle.fileno(), 0o600)
+    return handle
+
+
 def acquire_slot():
-    INSTANCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    secure_dir(INSTANCE_DIR)
     for number in range(1, MAX_SLOT_SEARCH + 1):
-        handle = (INSTANCE_DIR / f"slot_{number}.lock").open("a+")
+        handle = secure_handle((INSTANCE_DIR / f"slot_{number}.lock").open("a+"))
         try:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -158,7 +179,7 @@ def instance_state_path(slot):
 
 
 def publish_instance_state(slot, payload):
-    INSTANCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    secure_dir(INSTANCE_DIR)
     data = dict(payload, slot=slot, ts=time.time(), pid=os.getpid())
     path = instance_state_path(slot)
     temporary = path.with_suffix(f".{os.getpid()}.tmp")
@@ -193,7 +214,7 @@ def read_active_instances():
 def destination_lock(destination):
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
-    handle = (destination / ".anchor-downloader.lock").open("a+")
+    handle = secure_handle((destination / ".anchor-downloader.lock").open("a+"))
     try:
         try:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -340,8 +361,18 @@ async def resolve_chat(client, link):
         raise RuntimeError(f"Nao foi possivel acessar o chat ({type(error).__name__}).") from None
 
 
+# O limite do ext4 e de 255 bytes por componente de caminho. O teto aqui e mais
+# baixo de proposito: sobra espaco para a extensao e para o " (2)" que o
+# `resolve_unique_path` acrescenta quando o nome ja existe.
+MAX_FILENAME_BYTES = 200
+
+
 def sanitize_filename(name):
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f\x7f]', "_", str(name or "arquivo"))
+    # Corta por bytes, nao por caracteres: o nome vem do Telegram e um nome
+    # longo demais faria a gravacao falhar com ENAMETOOLONG. `errors="ignore"`
+    # descarta um caractere multibyte partido ao meio pelo corte.
+    name = name.encode("utf-8")[:MAX_FILENAME_BYTES].decode("utf-8", errors="ignore")
     return name.strip().rstrip(".") or "arquivo"
 
 

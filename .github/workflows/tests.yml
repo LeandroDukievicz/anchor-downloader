@@ -5,6 +5,12 @@ on:
     branches: ["**"]
   pull_request:
 
+# O GITHUB_TOKEN so precisa ler o codigo. Sem este bloco ele herda o padrao do
+# repositorio, que pode ser leitura e escrita — permissao de sobra para um
+# workflow que so roda teste.
+permissions:
+  contents: read
+
 jobs:
   pytest:
     runs-on: ubuntu-latest

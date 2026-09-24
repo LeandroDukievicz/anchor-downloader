@@ -12,7 +12,7 @@ from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
-from .engine import STRING_SESSION_FILE, TELEGRAM_FLOOD_SLEEP_SECONDS, load_config
+from .engine import STRING_SESSION_FILE, TELEGRAM_FLOOD_SLEEP_SECONDS, load_config, secure_dir
 
 
 class AuthCancelled(RuntimeError):
@@ -20,7 +20,7 @@ class AuthCancelled(RuntimeError):
 
 
 def _save_session(value: str) -> None:
-    STRING_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    secure_dir(STRING_SESSION_FILE.parent)
     temporary: str | None = None
     try:
         with tempfile.NamedTemporaryFile(

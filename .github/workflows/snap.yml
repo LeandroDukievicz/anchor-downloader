@@ -20,6 +20,10 @@ on:
     types: [published]
   workflow_dispatch:
 
+# So leitura: o snap gerado sobe como artefato, nada e escrito no repositorio.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

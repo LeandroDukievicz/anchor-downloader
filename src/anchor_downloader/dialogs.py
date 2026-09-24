@@ -24,7 +24,7 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
 
-from .engine import CONFIG_FILE, MAX_CONCURRENT_DOWNLOADS
+from .engine import CONFIG_FILE, MAX_CONCURRENT_DOWNLOADS, secure_dir
 
 
 def _read_config() -> dict[str, Any]:
@@ -42,7 +42,7 @@ def _read_config() -> dict[str, Any]:
 def _save_config(updates: dict[str, Any]) -> None:
     config = _read_config()
     config.update(updates)
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    secure_dir(CONFIG_FILE.parent)
     temporary: str | None = None
     try:
         with tempfile.NamedTemporaryFile(
