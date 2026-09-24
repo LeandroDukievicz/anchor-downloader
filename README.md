@@ -7,7 +7,8 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 ![Dashboard do TG Downloader](docs/screenshots/dashboard.png)
 
 > Captura do modo de demonstração. Nenhuma conta ou transferência real foi
-> utilizada na imagem.
+> utilizada na imagem. Cada janela do programa está documentada em
+> [Telas do aplicativo](#telas-do-aplicativo).
 
 ## Recursos
 
@@ -49,15 +50,59 @@ organizar grandes coleções sem carregar todo o histórico do canal na memória
 
 ## Requisitos
 
-- Ubuntu ou outra distribuição Linux.
+- Ubuntu ou outra distribuição Linux. O serviço compartilhado usa sockets
+  `AF_UNIX` e trava de arquivo por `fcntl`: não roda no Windows.
 - Python 3.11 ou mais recente.
-- Pacote `python3-venv`.
+- `pipx` para instalar, ou `python3-venv` para rodar a partir do código.
 - Conta do Telegram.
 - `API ID` e `API Hash` obtidos em [my.telegram.org](https://my.telegram.org).
 
-## Instalação no Ubuntu
+## Instalação
 
-Instale os requisitos do sistema:
+### Com pipx (recomendado)
+
+O pipx instala o programa num ambiente isolado e deixa o comando disponível de
+qualquer pasta, sem mexer no Python do sistema:
+
+```bash
+sudo apt update
+sudo apt install -y pipx
+pipx install tg-downloader
+pipx ensurepath
+```
+
+Abra um terminal novo e execute `tg-downloader`.
+
+Para atualizar depois, `pipx upgrade tg-downloader`.
+
+> Se você já tinha instalado pelo `install.sh`, remova o lançador antigo antes
+> — os dois disputam o mesmo caminho `~/.local/bin/tg-downloader`:
+>
+> ```bash
+> rm -f ~/.local/bin/tg-downloader
+> ```
+
+### Com snap
+
+Disponível na Snap Store, com atualização automática:
+
+```bash
+sudo snap install tg-downloader
+```
+
+O destino padrão `~/Downloads/Telegram` funciona assim que instala. Para baixar
+num HD secundário ou externo, libere o acesso uma vez:
+
+```bash
+sudo snap connect tg-downloader:removable-media
+```
+
+O aplicativo mostra esse comando pronto se você escolher um destino que ainda
+não foi liberado.
+
+### A partir do código-fonte
+
+Para desenvolver, ou para rodar uma versão ainda não publicada:
 
 ```bash
 sudo apt update
@@ -101,8 +146,182 @@ movida, execute `./install.sh` novamente para atualizar os atalhos.
 6. Quando o cabeçalho mostrar `PRONTO`, pressione `N` para criar uma fila.
 7. Informe o link do canal ou grupo, uma pasta absoluta de destino e confirme.
 
+Cada uma dessas janelas aparece, com explicação, em
+[Telas do aplicativo](#telas-do-aplicativo).
+
 As credenciais de API e a sessão ficam somente no computador local, com
 permissões restritas ao usuário.
+
+## Telas do aplicativo
+
+Todas as imagens desta seção saem do modo de demonstração
+(`tg-downloader --demo`): os arquivos, os tamanhos e as velocidades são
+simulados, a configuração vem de uma pasta temporária e o destino é fixado em
+`/home/usuario/...`. Nenhuma conta, canal, credencial ou caminho pessoal
+aparece nelas. Para refazê-las depois de mexer na interface, veja
+[Desenvolvimento e testes](#desenvolvimento-e-testes).
+
+### Painel principal
+
+![Painel principal do TG Downloader](docs/screenshots/dashboard.png)
+
+É a tela que abre com o programa e onde se passa quase todo o uso. De cima
+para baixo:
+
+- **Cabeçalho:** nome, versão, conta conectada, estado da sessão
+  (`PRONTO`, `CONECTANDO`, `DESCONECTADO`, `DEMO / DADOS SIMULADOS`) e relógio.
+- **CONTA / SESSAO:** nome e `@usuário` da conta, tipo de sessão, canal da fila
+  atual, número da instância e quantos downloads simultâneos ela usa.
+- **TOTAL DA FILA:** volume total do canal, quanto já está disponível no
+  destino e a barra de progresso da coleção inteira. O rótulo `confirmado`
+  indica que a varredura de metadados terminou.
+- **TRANSFERENCIA TOTAL:** histórico de velocidade somando todas as janelas
+  abertas, com o número de instâncias ativas.
+- **ATIVIDADE ATUAL:** velocidade instantânea, pico, volume disponível, total,
+  ETA, arquivos concluídos, pulados e o que falta baixar.
+- **ARQUIVOS:** a fila em si, com abas de filtro, posição, nome, progresso,
+  velocidade e status de cada arquivo. O título do painel mostra quantos itens
+  o filtro atual seleciona.
+- **DETALHES DO ARQUIVO:** o item sob o cursor, com categoria e caminho de
+  destino completo.
+- **INSTANCIAS ATIVAS:** as outras janelas do programa que estão baixando.
+- **Rodapé:** contagem por status e as teclas disponíveis.
+
+### Configurações e conta (`F3`)
+
+![Tela de configurações](docs/screenshots/configuracoes.png)
+
+Guarda o `API ID` e o `API Hash` obtidos em
+[my.telegram.org](https://my.telegram.org) e o número padrão de downloads
+simultâneos. O campo do hash é mascarado e o `config.json` gravado fica com
+permissão restrita ao usuário. **Salvar** apenas grava; **Conectar** grava e já
+começa o login. Enquanto nada tiver sido configurado os campos aparecem
+vazios, como na imagem.
+
+### Entrar na conta
+
+O login só acontece quando não existe sessão salva. São até três janelas em
+sequência, e nenhuma delas escreve o que você digita no log.
+
+![Pedido do telefone](docs/screenshots/login-telefone.png)
+
+O telefone precisa do código do país, no formato `+5511999999999`. É por ele
+que o Telegram decide para onde mandar o código de verificação.
+
+![Pedido do código de verificação](docs/screenshots/login-codigo.png)
+
+O código chega no aplicativo do Telegram ou por SMS. Espaços são ignorados.
+
+![Pedido da senha de duas etapas](docs/screenshots/login-duas-etapas.png)
+
+Esta janela só aparece se a conta tiver verificação em duas etapas ligada. O
+campo é mascarado e a senha não vai para o disco: o que fica gravado é a
+`StringSession` devolvida pelo Telegram.
+
+### Novo download (`N`)
+
+![Janela de novo download](docs/screenshots/novo-download.png)
+
+Abre uma fila. São três campos: o canal ou link do Telegram (`@canal`, ID
+numérico ou um endereço `t.me`), a pasta absoluta de destino e quantos
+arquivos baixar ao mesmo tempo. Cada campo responde enquanto você digita — na
+imagem o link foi reconhecido e a pasta ainda não existe, mas será criada.
+
+![Novo download com link inválido](docs/screenshots/novo-download-link-invalido.png)
+
+Quando o texto não tem forma de canal, a mensagem explica o que é aceito e o
+botão **Iniciar** fica desabilitado. Essa verificação é local: o link só é
+resolvido no Telegram depois da confirmação.
+
+### Filtros da fila
+
+A lista de arquivos tem cinco abas, percorridas com as setas ou com o mouse. O
+contador no título do painel acompanha o filtro escolhido.
+
+![Aba Ativos](docs/screenshots/aba-ativos.png)
+
+**Ativos** reúne o que está em transferência ou pausado — é a aba para
+acompanhar uma fila longa sem o ruído do que ainda nem começou.
+
+![Aba Fila](docs/screenshots/aba-fila.png)
+
+**Fila** mostra o oposto: o que ainda está esperando vez. Os arquivos entram
+em transferência conforme os slots simultâneos vão sendo liberados.
+
+![Aba Concluídos](docs/screenshots/aba-concluidos.png)
+
+**Concluídos** junta o que terminou nesta execução e o que já estava completo
+no destino e foi pulado.
+
+![Aba Erros](docs/screenshots/aba-erros.png)
+
+**Erros** fica vazia enquanto nada falhar, como na imagem. É o primeiro lugar
+a olhar quando o relatório final acusa arquivos faltando. Sem nada
+selecionado, o painel de detalhes também fica vazio.
+
+### Busca (`/`)
+
+![Busca por nome de arquivo](docs/screenshots/busca.png)
+
+Abre um campo acima da tabela e filtra por parte do nome, somando-se à aba
+selecionada. `Esc` limpa a busca e devolve o foco para a lista.
+
+### Pausar e retomar (`Espaço` e `P`)
+
+![Fila inteira pausada](docs/screenshots/fila-pausada.png)
+
+`Espaço` pausa ou retoma o arquivo sob o cursor; `P` faz o mesmo com a fila
+inteira. O status vira `Pausado`, a velocidade e o ETA zeram e nada é
+descartado: os arquivos `.part` continuam no destino e a transferência segue
+do ponto em que parou.
+
+### Detalhes do arquivo (`Enter` ou `2`)
+
+![Detalhes do arquivo em janela](docs/screenshots/detalhes-do-arquivo.png)
+
+Mostra o item selecionado em uma janela: progresso, estado, bytes recebidos,
+tamanho, velocidade, ETA, categoria, caminho completo de destino e o canal de
+origem. É como ler o caminho inteiro quando o terminal é estreito demais para
+o painel lateral.
+
+### Instâncias ativas (`4`)
+
+![Instâncias ativas](docs/screenshots/instancias.png)
+
+Várias janelas do programa podem baixar ao mesmo tempo, compartilhando uma só
+conexão com o Telegram. Esta janela lista uma linha por instância: o número do
+slot, a fase em que ela está, quantos arquivos já terminaram sobre o total, a
+velocidade e o canal que ela está baixando.
+
+### Ajuda (`F1` ou `?`)
+
+![Ajuda com a lista de teclas](docs/screenshots/ajuda.png)
+
+A lista de teclas, à mão, sem sair do programa. A mesma tabela está em
+[Atalhos de teclado](#atalhos-de-teclado).
+
+### Encerrar (`Q` ou `Ctrl+C`)
+
+![Confirmação de saída](docs/screenshots/sair.png)
+
+Com uma fila em andamento, a saída pede confirmação. Os arquivos parciais são
+preservados: abrir a mesma fila depois retoma de onde parou, sem baixar de
+novo o que já está no disco. Sem fila em andamento, o programa fecha direto.
+
+### A interface se adapta ao terminal
+
+![Tabela completa em um terminal largo](docs/screenshots/tabela-completa.png)
+
+Quando sobra espaço para a tabela, ela ganha duas colunas a mais: **Tamanho** e
+**ETA** por arquivo, além da velocidade.
+
+![Painel em um terminal estreito](docs/screenshots/layout-estreito.png)
+
+No sentido contrário, abaixo de 145 colunas os painéis são compactados e,
+abaixo de 90, os blocos de transferência, atividade e detalhes saem de cena e a
+tabela fica no essencial: posição, nome, progresso e status. O `2` e o `4`
+continuam abrindo detalhes e instâncias em janela, então nenhuma informação
+fica inacessível.
 
 ## Como o download funciona
 
@@ -178,6 +397,12 @@ uma conta.
 Esses arquivos estão ignorados pelo Git. Nunca publique `config.json` nem
 `session_string`.
 
+Instalado como snap, tudo o que está em `~/.config/telegram-downloader/` passa
+para `~/snap/tg-downloader/common/`: o confinamento não dá acesso a pastas
+ocultas do primeiro nível da sua pasta pessoal. Os dois arquivos gravados no
+destino não mudam de lugar. Use `tg-downloader --doctor` para ver os caminhos
+em uso na sua instalação.
+
 ## Diagnóstico
 
 Execute:
@@ -210,7 +435,13 @@ Observações úteis:
 
 ## Atualização
 
-Dentro do diretório do projeto:
+Se instalou pelo pipx:
+
+```bash
+pipx upgrade tg-downloader
+```
+
+Se instalou a partir do código-fonte, dentro do diretório do projeto:
 
 ```bash
 git pull --ff-only
@@ -226,6 +457,19 @@ python3 -m venv .venv
 .venv/bin/python -m tg_downloader --demo
 ```
 
+As capturas de [Telas do aplicativo](#telas-do-aplicativo) são geradas pela
+própria interface, num terminal virtual, e não à mão:
+
+```bash
+.venv/bin/python tools/screenshots.py
+```
+
+O script abre o modo de demonstração, percorre cada tela e grava os PNG em
+`docs/screenshots/`. Ele lê a configuração de uma pasta temporária e fixa o
+destino em `/home/usuario/...`, então as imagens nunca carregam credenciais nem
+o caminho pessoal de quem as gerou. A conversão de SVG para PNG usa o Chrome ou
+o Chromium instalado — é o que respeita a fonte monoespacada do terminal.
+
 Estrutura principal:
 
 ```text
@@ -238,6 +482,7 @@ tg-downloader/
 │   ├── engine.py           # descoberta, fila, retomada e persistência
 │   └── widgets.py          # componentes visuais
 ├── tests/                  # testes automatizados
+├── tools/screenshots.py    # gera as capturas do README
 ├── install.sh              # instalação local e atalhos
 └── pyproject.toml          # pacote e dependências
 ```
