@@ -113,6 +113,36 @@ def _recognized_link(value: str) -> bool:
     return bool([part for part in parsed.path.split("/") if part])
 
 
+# Raizes onde o Linux monta disco secundario e externo. Empacotado como snap,
+# elas so ficam visiveis depois que a interface `removable-media` e conectada —
+# e ela nao conecta sozinha, nem para firefox ou brave.
+MONTAGENS_EXTERNAS = ("/media/", "/run/media/", "/mnt/")
+
+
+def _bloqueio_do_snap(destination: Path) -> str:
+    """A linha que resolve, quando quem barrou o destino foi o confinamento.
+
+    Fora de um snap devolve vazio e nada muda — o erro de permissao comum
+    continua vindo de onde vinha. Dentro, um "permissao negada" seco nao diz o
+    que fazer, e o que falta e um comando de uma linha. Vale avisar aqui, no
+    dialogo, enquanto a pessoa ainda pode agir, e nao no meio do download.
+    """
+    nome = os.environ.get("SNAP_INSTANCE_NAME") or os.environ.get("SNAP_NAME")
+    if not nome or not str(destination).startswith(MONTAGENS_EXTERNAS):
+        return ""
+    # O destino ainda nao existe: quem responde pela escrita e a pasta mais
+    # proxima que ja existe.
+    existente = destination
+    while not existente.exists() and existente != existente.parent:
+        existente = existente.parent
+    if os.access(existente, os.W_OK | os.X_OK):
+        return ""
+    return (
+        "Este disco ainda nao foi liberado para o aplicativo. Rode uma vez no "
+        f"terminal: sudo snap connect {nome}:removable-media"
+    )
+
+
 def _destination_path(value: str) -> Path:
     raw_value = value.strip()
     if not raw_value or "\x00" in raw_value:
@@ -122,6 +152,9 @@ def _destination_path(value: str) -> Path:
         raise ValueError("Use um caminho absoluto, como /home/usuario/Downloads.")
     if destination.exists() and not destination.is_dir():
         raise ValueError("O destino precisa ser uma pasta.")
+    bloqueio = _bloqueio_do_snap(destination)
+    if bloqueio:
+        raise ValueError(bloqueio)
     return destination
 
 

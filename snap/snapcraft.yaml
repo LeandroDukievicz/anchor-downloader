@@ -1,0 +1,79 @@
+name: tg-downloader
+title: TG Downloader
+base: core24
+adopt-info: tg-downloader
+summary: Baixe coleções grandes do Telegram por um painel no terminal
+description: |
+  TG Downloader baixa e organiza coleções grandes de canais e grupos do
+  Telegram sem carregar o histórico inteiro na memória: calcula o volume
+  antes de começar, baixa em paralelo, retoma arquivos `.part` depois de
+  qualquer interrupção e separa o resultado em Fotos, Vídeos, Músicas,
+  Áudios, Documentos, Legendas, GIFs, Stickers e Outros.
+
+  A conta é sua e a conexão é direta: você informa o seu próprio API ID e
+  API Hash de my.telegram.org, a autenticação fica no seu computador em
+  `StringSession` e não existe servidor intermediário.
+
+  Por padrão baixa em ~/Downloads/Telegram, que funciona assim que instala.
+  Para baixar num HD secundário ou externo, conecte a interface uma vez:
+
+    sudo snap connect tg-downloader:removable-media
+
+grade: stable
+license: MIT
+website: https://leandrodukievicz.github.io/tg-downloader/
+source-code: https://github.com/LeandroDukievicz/tg-downloader
+issues: https://github.com/LeandroDukievicz/tg-downloader/issues
+
+# Por que **strict**, e não classic como o WatchAI.
+#
+# O WatchAI é classic porque as duas coisas que o tiram da tela ficam fora de
+# qualquer interface: falar com o shell da sessão pelo D-Bus e chamar o
+# `notify-send` do sistema. Aqui não existe nada parecido — baixar arquivo,
+# abrir pasta e ler o clipboard são todos cobertos por interface. Um downloader
+# não sustenta um pedido de classic na revisão da loja, e strict entra sem
+# revisão manual.
+confinement: strict
+
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  tg-downloader:
+    command: bin/tg-downloader
+    environment:
+      # O app guarda config, sessão, socket do serviço e log em
+      # ~/.config/telegram-downloader — que a interface `home` **não alcança**:
+      # a regra dela é `owner @{HOME}/[^s.]**`, e o `.` exclui dotdir de
+      # primeiro nível. Sem esta linha o snap não abre. O código já previu a
+      # saída: `TG_DOWNLOADER_HOME` reloca o diretório inteiro (engine.py,
+      # diagnostics.py), e $SNAP_USER_COMMON é a pasta privada que todo snap
+      # tem e que nenhuma interface precisa liberar.
+      TG_DOWNLOADER_HOME: $SNAP_USER_COMMON
+    plugs:
+      - network           # Telegram (MTProto, só saída — o broker é AF_UNIX)
+      - home              # ~/Downloads/Telegram, o destino padrão. Auto-conecta.
+      # /media, /run/media e /mnt: onde o Linux monta HD secundário e externo.
+      # **Não** auto-conecta — nem para firefox ou brave. Quem quiser outro
+      # disco roda `sudo snap connect tg-downloader:removable-media` uma vez, e
+      # o app mostra essa linha pronta quando o destino cai aqui (dialogs.py).
+      - removable-media
+      - desktop           # xdg-open, o Shift+O que abre a pasta de destino
+      - wayland           # wl-paste
+      - x11               # xclip
+
+parts:
+  tg-downloader:
+    plugin: python
+    source: .
+    stage-packages:
+      # O "colar do sistema" chama binário externo (`wl-paste`, `xclip`). Sob
+      # strict o PATH é o do snap e não o do host, então sem embarcar aqui o
+      # Ctrl+Shift+V cairia no aviso "clipboard indisponivel". São pacotes
+      # pequenos e o app degrada sozinho se faltarem.
+      - wl-clipboard
+      - xclip
+    override-pull: |
+      craftctl default
+      craftctl set version="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"
