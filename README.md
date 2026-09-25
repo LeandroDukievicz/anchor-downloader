@@ -636,11 +636,70 @@ destino em `/home/usuario/...`, então as imagens nunca carregam credenciais nem
 o caminho pessoal de quem as gerou. A conversão de SVG para PNG usa o Chrome ou
 o Chromium instalado — é o que respeita a fonte monoespacada do terminal.
 
+### Publicar na Snap Store
+
+O workflow `snap` constrói e testa o pacote a cada push, mas só **publica**
+quando uma release é publicada no GitHub e o repositório está preparado. A
+preparação acontece uma vez:
+
+1. Registrar o nome na loja. Precisa de conta Ubuntu One, e o nome é único no
+   mundo todo:
+
+   ```bash
+   snapcraft login
+   snapcraft register anchor-downloader
+   ```
+
+2. Gerar a credencial que o CI usa. Ela é limitada a este snap e a estas
+   operações, então não serve para mais nada se vazar:
+
+   ```bash
+   snapcraft export-login --snaps anchor-downloader \
+     --acls package_access,package_push,package_update,package_release -
+   ```
+
+3. Guardar a saída inteira em `Settings > Environments > snapcraft`, como o
+   segredo `SNAPCRAFT_STORE_CREDENTIALS`.
+
+4. Definir a variável de repositório `SNAP_STORE_READY` como `true`.
+
+5. Em <https://snapcraft.io/anchor-downloader/listing>, deixar a visibilidade
+   em **Public**. Enquanto estiver *Private* ou *Unlisted* o snap instala pelo
+   terminal mas não aparece na busca do App Center — é o sintoma que mais se
+   confunde com "a publicação falhou".
+
+Feito isso, publicar uma release no GitHub sobe o pacote direto para o canal
+`stable`, que é o canal que o App Center do Ubuntu lista. Os canais `edge` e
+`beta` não aparecem lá.
+
+Para publicar à mão, sem passar pelo CI:
+
+```bash
+snapcraft pack
+snapcraft upload --release=stable anchor-downloader_*.snap
+```
+
+O ícone da ficha sai de `snap/gui/icon.png` e o texto sai das chaves `title`,
+`summary` e `description` do `snapcraft.yaml`. A loja só relê os dois se
+*Automatically update metadata from the snap* estiver marcado na página de
+listing; sem isso, `snapcraft upload-metadata anchor-downloader_*.snap` envia
+na mão. As capturas de tela não vêm do pacote — sobem pela página de listing, e
+as imagens de `docs/screenshots/` servem.
+
+Para conferir se a loja já indexou, sem depender do cache do App Center:
+
+```bash
+snap find anchor-downloader
+```
+
 Estrutura principal:
 
 ```text
 anchor-downloader/
 ├── docs/screenshots/       # imagens da documentação
+├── snap/
+│   ├── gui/                # ícone e atalho que a loja e o menu leem
+│   └── snapcraft.yaml      # receita do pacote e confinamento
 ├── src/anchor_downloader/
 │   ├── app.py              # aplicação Textual e navegação
 │   ├── auth.py             # autenticação segura no Telegram

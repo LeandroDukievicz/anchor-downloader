@@ -25,6 +25,18 @@ website: https://leandrodukievicz.github.io/anchor-downloader/
 source-code: https://github.com/LeandroDukievicz/anchor-downloader
 issues: https://github.com/LeandroDukievicz/anchor-downloader/issues
 
+# O ícone e o atalho ficam em `snap/gui/`, que o snapcraft copia para
+# `meta/gui/` ao empacotar. Não há chave para apontar os dois — é o diretório
+# que o snapcraft procura, e é de lá que sai o que o usuário enxerga:
+#
+#   icon.png                  o ícone da ficha na Snap Store e no App Center.
+#                             Sem ele a ficha sai com o quadrado cinza genérico,
+#                             que é o que faz um app publicado parecer ausente.
+#   anchor-downloader.desktop o atalho que o snapd instala em
+#                             /var/lib/snapd/desktop/applications/. Sem ele o
+#                             `snap install` não cria entrada no menu de
+#                             aplicativos e o app só existe no terminal.
+
 # Por que **strict**, e não classic como o WatchAI.
 #
 # O WatchAI é classic porque as duas coisas que o tiram da tela ficam fora de

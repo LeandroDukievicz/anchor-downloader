@@ -4,8 +4,14 @@ name: snap
 # chama o comando. Só compilar não diz nada — o erro que este projeto arrisca
 # é de confinamento, e ele aparece na primeira execução, não no build.
 #
-# Não publica na loja: isso pede credencial (`snapcraft login`) e o nome
-# registrado. O snap gerado fica como artefato para instalar à mão com
+# Em `release: published` o snap também sobe para o canal `stable` da Snap
+# Store, que é o canal que o App Center do Ubuntu lista. O job de publicação
+# fica inerte até o repositório ter a variável SNAP_STORE_READY=true e o
+# segredo SNAPCRAFT_STORE_CREDENTIALS — mesmo desenho do publish.yml, para
+# ninguém levar erro de workflow por publicar uma release antes da loja estar
+# configurada. Como ligar está no README, em "Publicar na Snap Store".
+#
+# O snap gerado fica sempre como artefato, para instalar à mão com
 # `sudo snap install --dangerous`.
 
 on:
@@ -48,7 +54,43 @@ jobs:
           anchor-downloader --doctor | grep -q "snap/anchor-downloader/common" \
             || { echo "ANCHOR_DOWNLOADER_HOME não pegou"; exit 1; }
 
+      # O atalho do menu só vale se o snapd aceitar o arquivo: ele valida o
+      # .desktop na instalação e **descarta em silêncio** o que não entende —
+      # um Exec que não bate com `apps:` some sem erro nenhum. Instalado, o
+      # Exec aparece reescrito para /snap/bin, e é isso que se checa aqui.
+      - name: O atalho e o ícone chegaram ao menu de aplicativos
+        run: |
+          entry=/var/lib/snapd/desktop/applications/anchor-downloader_anchor-downloader.desktop
+          cat "$entry"
+          grep -qx "Exec=/snap/bin/anchor-downloader" "$entry" \
+            || { echo "o snapd não aceitou o Exec do .desktop"; exit 1; }
+          test -f /snap/anchor-downloader/current/meta/gui/icon.png \
+            || { echo "o ícone não foi para meta/gui"; exit 1; }
+
       - uses: actions/upload-artifact@v4
         with:
-          name: snap
+          name: snap-amd64
           path: ${{ steps.build.outputs.snap }}
+
+  publish:
+    needs: build
+    if: github.event_name == 'release' && vars.SNAP_STORE_READY == 'true'
+    runs-on: ubuntu-latest
+    environment: snapcraft
+    steps:
+      # Baixa por padrão (`snap-*`) para que acrescentar uma arquitetura seja
+      # só mais uma entrada de matriz no job de cima, sem mexer aqui.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: snap-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Publicar no canal stable
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          sudo snap install snapcraft --classic
+          for file in dist/*.snap; do
+            snapcraft upload --release=stable "$file"
+          done

@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Anchor Download
+Comment=Baixe coleções grandes do Telegram por um painel no terminal
+# Sem caminho: o snapd reescreve para /snap/bin/anchor-downloader na
+# instalação. O nome tem de bater com uma entrada de `apps:` no snapcraft.yaml,
+# senão o snapd descarta o arquivo inteiro e o atalho não aparece.
+Exec=anchor-downloader
+# ${SNAP} vira /snap/anchor-downloader/current na instalação, e o snapcraft
+# copia snap/gui/icon.png para meta/gui/icon.png ao empacotar. O
+# `desktop-file-validate` reclama desta linha por não conhecer a expansão do
+# snapd — é ruído, e trocar por um caminho fixo quebraria instalação paralela.
+Icon=${SNAP}/meta/gui/icon.png
+# A interface é um painel de terminal (Textual): quem clica no menu precisa de
+# um terminal em volta. Quem abre o atalho ganha o terminal padrão da área de
+# trabalho; o `anchor-downloader` no PATH continua funcionando igual.
+Terminal=true
+Categories=Network;FileTransfer;
+Keywords=Telegram;download;terminal;telegrama;baixar;
+StartupNotify=false
