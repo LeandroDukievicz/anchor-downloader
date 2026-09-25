@@ -223,10 +223,12 @@ para baixo:
 
 Guarda o `API ID` e o `API Hash` obtidos em
 [my.telegram.org](https://my.telegram.org) e o número padrão de downloads
-simultâneos. O campo do hash é mascarado e o `config.json` gravado fica com
-permissão restrita ao usuário. **Salvar** apenas grava; **Conectar** grava e já
-começa o login. Enquanto nada tiver sido configurado os campos aparecem
-vazios, como na imagem.
+simultâneos. Os dois são obrigatórios e são seus: não existe credencial
+embutida no programa, e sem eles não há conexão nem download. O campo do hash é
+mascarado e o `config.json` gravado fica com permissão restrita ao usuário.
+**Salvar** apenas grava; **Conectar** grava e já começa o login — nenhum dos
+dois aceita os campos vazios. Enquanto nada tiver sido configurado os campos
+aparecem vazios, como na imagem.
 
 ### Entrar na conta
 

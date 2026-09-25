@@ -281,6 +281,15 @@ class _Dialog(ModalScreen):
         width: 1fr;
         color: #daf9ff;
     }
+    /* Classe propria em vez de margem no .dialog-body: aquele e o corpo de
+       MessageScreen e ConfirmScreen, onde o texto e a tela inteira e nao
+       precisa de folga por baixo. */
+    _Dialog .dialog-intro {
+        height: auto;
+        width: 1fr;
+        color: #7e91ad;
+        margin-bottom: 1;
+    }
     """
 
     def action_cancel(self) -> None:
@@ -428,9 +437,16 @@ class SettingsScreen(_Dialog):
     def compose(self) -> ComposeResult:
         with VerticalScroll(classes="dialog"):
             yield Static("CONFIGURACOES", classes="dialog-title", markup=False)
-            yield Label("API ID (opcional)")
+            yield Static(
+                "O programa baixa pela SUA conta, sem servidor intermediario: "
+                "os dois valores abaixo sao seus e sao obrigatorios. Pegue em "
+                "my.telegram.org, em API development tools.",
+                classes="dialog-intro",
+                markup=False,
+            )
+            yield Label("API ID")
             yield Input(str(self.config.get("api_id") or ""), type="integer", id="config-api-id")
-            yield Label("API Hash (opcional)")
+            yield Label("API Hash")
             yield Input(str(self.config.get("api_hash") or ""), password=True, id="config-api-hash")
             yield Label("Downloads simultaneos (1 a 10)")
             yield Input(str(self.concurrency), type="integer", id="config-concurrency")
@@ -474,20 +490,25 @@ class SettingsScreen(_Dialog):
         api_id = self.query_one("#config-api-id", Input).value.strip()
         api_hash = self.query_one("#config-api-hash", Input).value.strip()
         updates: dict[str, Any] = {"concurrent_downloads": concurrency}
-        if api_id:
-            if not api_id.isascii() or not api_id.isdecimal() or int(api_id) <= 0:
-                self._error("#config-error", "API ID precisa ser um numero positivo.", "#config-api-id")
-                return
-            updates["api_id"] = int(api_id)
-        if api_hash:
-            if len(api_hash) != 32 or any(char not in "0123456789abcdefABCDEF" for char in api_hash):
-                self._error("#config-error", "API Hash precisa ter 32 caracteres hexadecimais.", "#config-api-hash")
-                return
-            updates["api_hash"] = api_hash
+        # Os dois sao requisito, nao preferencia: `engine.load_config` recusa a
+        # conexao sem eles e nao existe credencial embutida no programa. Antes
+        # so o botao Conectar cobrava, e o formulario chamava os campos de
+        # opcionais — quem salvava vazio saia daqui achando que estava pronto.
+        if not api_id:
+            self._error("#config-error", "Preencha o API ID; ele vem de my.telegram.org.", "#config-api-id")
+            return
+        if not api_id.isascii() or not api_id.isdecimal() or int(api_id) <= 0:
+            self._error("#config-error", "API ID precisa ser um numero positivo.", "#config-api-id")
+            return
+        updates["api_id"] = int(api_id)
+        if not api_hash:
+            self._error("#config-error", "Preencha o API Hash; ele vem de my.telegram.org.", "#config-api-hash")
+            return
+        if len(api_hash) != 32 or any(char not in "0123456789abcdefABCDEF" for char in api_hash):
+            self._error("#config-error", "API Hash precisa ter 32 caracteres hexadecimais.", "#config-api-hash")
+            return
+        updates["api_hash"] = api_hash
         try:
-            existing = _read_config()
-            if login and not (updates.get("api_id", existing.get("api_id")) and updates.get("api_hash", existing.get("api_hash"))):
-                raise ValueError("Preencha API ID e API Hash para conectar.")
             _save_config(updates)
         except (OSError, ValueError) as exc:
             self._error("#config-error", str(exc))
