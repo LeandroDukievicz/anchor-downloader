@@ -37,7 +37,10 @@
       <a href="#instalar">Instalar</a>
       <a href="#teclado">Teclado</a>
     </nav>
-    <a class="ghost-link" href="https://github.com/LeandroDukievicz/anchor-downloader">GitHub&nbsp;↗</a>
+    <div class="topbar__links">
+      <a class="ghost-link ghost-link--loja" href="https://snapcraft.io/anchor-downloader">Snap&nbsp;Store&nbsp;↗</a>
+      <a class="ghost-link" href="https://github.com/LeandroDukievicz/anchor-downloader">GitHub&nbsp;↗</a>
+    </div>
   </div>
 </header>
 
@@ -64,10 +67,17 @@
     </p>
 
     <div class="cta reveal" style="--d:3">
-      <div class="cmd" data-copy>
-        <span class="cmd__prompt" aria-hidden="true">$</span>
-        <code>pipx install anchor-downloader</code>
-        <button class="cmd__copy" type="button" aria-label="Copiar comando de instalação">copiar</button>
+      <div class="swap" data-swap>
+        <div class="cmd swap__item is-on" data-copy>
+          <span class="cmd__prompt" aria-hidden="true">$</span>
+          <code>pipx install anchor-downloader</code>
+          <button class="cmd__copy" type="button" aria-label="Copiar o comando de instalação por pipx">copiar</button>
+        </div>
+        <div class="cmd swap__item" data-copy>
+          <span class="cmd__prompt" aria-hidden="true">$</span>
+          <code>sudo snap install anchor-downloader</code>
+          <button class="cmd__copy" type="button" aria-label="Copiar o comando de instalação por snap">copiar</button>
+        </div>
       </div>
       <a class="btn-ghost" href="#instalar">outras formas de instalar</a>
     </div>
@@ -360,6 +370,59 @@ cd anchor-downloader
         function () { assentar(desistir); }
       );
     });
+  });
+
+  // Alterna os comandos do hero a cada 2s. Sem JS o primeiro fica visível e a
+  // página não perde nada — o CSS já nasce com ele aceso.
+  //
+  // O rodízio para enquanto o ponteiro está em cima ou o foco está dentro:
+  // trocar o comando debaixo de quem está mirando o botão copiar seria pior do
+  // que não alternar. Também para com a aba em segundo plano, onde ninguém vê.
+  var semMovimento = window.matchMedia
+    ? window.matchMedia("(prefers-reduced-motion: reduce)")
+    : null;
+
+  document.querySelectorAll("[data-swap]").forEach(function (caixa) {
+    var itens = caixa.querySelectorAll(".swap__item");
+    if (itens.length < 2) return;
+
+    var atual = 0;
+    var relogio = null;
+    var travas = 0;
+
+    function girar() {
+      atual = (atual + 1) % itens.length;
+      for (var i = 0; i < itens.length; i++) {
+        itens[i].classList.toggle("is-on", i === atual);
+      }
+    }
+    function tocar() {
+      if (relogio || travas || document.hidden) return;
+      if (semMovimento && semMovimento.matches) return;
+      relogio = setInterval(girar, 2000);
+    }
+    function parar() {
+      clearInterval(relogio);
+      relogio = null;
+    }
+    function segurar() { travas++; parar(); }
+    function soltar() { travas = Math.max(0, travas - 1); tocar(); }
+
+    caixa.addEventListener("mouseenter", segurar);
+    caixa.addEventListener("mouseleave", soltar);
+    caixa.addEventListener("focusin", segurar);
+    caixa.addEventListener("focusout", soltar);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) parar(); else tocar();
+    });
+    if (semMovimento && semMovimento.addEventListener) {
+      semMovimento.addEventListener("change", function () {
+        parar();
+        tocar();
+      });
+    }
+
+    tocar();
   });
 })();
 </script>

@@ -171,6 +171,11 @@ code { font-family: var(--mono); font-size: .9em; color: var(--cyan); }
   border-color: var(--cyan);
   background: rgba(0, 229, 255, .07);
 }
+.topbar__links { display: flex; align-items: center; gap: .5rem; }
+/* A loja e o destino que o site quer empurrar, entao ela nasce acesa em vez
+   de esperar o hover como o link do GitHub. */
+.ghost-link--loja { color: var(--cyan); border-color: var(--cyan); }
+.ghost-link--loja:hover { background: rgba(0, 229, 255, .12); }
 
 /* ── hero ──────────────────────────────────────────────────────────────── */
 
@@ -295,6 +300,22 @@ h1 em {
   pointer-events: none;
 }
 .cmd:hover::before { opacity: .8; }
+
+/* Os dois comandos do hero dividem a MESMA celula de grade: a caixa nasce com
+   a largura do mais longo (`sudo snap install...`) e nao muda quando eles se
+   alternam — inclusive o botao copiar fica parado no lugar em vez de pular.
+   `visibility` entra na transicao de proposito: ela nao interpola, so vira no
+   fim do fade, e e o que tira o item escondido da ordem de tabulacao e do
+   leitor de tela enquanto ele some. */
+.swap { display: grid; max-width: 100%; }
+.swap__item {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(.35rem);
+  transition: opacity .45s ease, transform .45s ease, visibility .45s;
+}
+.swap__item.is-on { opacity: 1; visibility: visible; transform: none; }
 
 .cmd__prompt { color: var(--magenta); font-weight: 600; }
 .cmd code { color: var(--text); white-space: pre; }
@@ -622,17 +643,37 @@ kbd {
   .graph i { animation: none; transform: scaleY(.62); }
   .dot, .caret { animation: none; }
   .card:hover { transform: none; }
+  /* Sem a alternancia, um dos dois comandos nunca apareceria. Em vez de
+     congelar num deles, a grade vira duas linhas e mostra os dois de uma vez —
+     some o movimento, nao a informacao. O JS le a mesma media query e nem
+     inicia o rodizio. */
+  .swap { grid-auto-flow: row; gap: .6rem; }
+  .swap__item {
+    grid-area: auto;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: none;
+  }
 }
 
 /* ── telas estreitas ───────────────────────────────────────────────────── */
 
 @media (max-width: 40rem) {
   .nav { display: none; }
-  .ghost-link { margin-left: auto; }
+  .topbar__links { margin-left: auto; gap: .4rem; }
+  .ghost-link { padding: .3rem .7rem; font-size: .74rem; }
   .graph { height: 2.75rem; margin-top: 2.25rem; }
   .commands li code { flex-basis: 100%; }
   .keys dt { flex-basis: 100%; }
   .keys dl > div { flex-direction: column; gap: .35rem; }
   .shot { padding-inline: .6rem; }
   .shot__frame img { min-width: 40rem; }
+}
+
+/* Abaixo disto o nome escrito ao lado do simbolo colide com os dois pills.
+   Some o texto e fica o simbolo: o nome ja esta no <title>, na abertura da
+   pagina e no rodape — os dois links, nao. */
+@media (max-width: 26rem) {
+  .brand span { display: none; }
 }
