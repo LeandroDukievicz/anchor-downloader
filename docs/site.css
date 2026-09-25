@@ -514,6 +514,12 @@ h1 em {
 .install__item .cmd { margin-top: auto; }
 .fine { margin: .8rem 0 0; font-size: .78rem; color: var(--dim); }
 
+/* O badge vem pronto da Snap Store, com a moldura cinza dela. Largura fixa com
+   max-width para nao estourar o card quando a grade vira uma coluna so. */
+.store-badge { display: inline-block; margin-top: 1.1rem; }
+.store-badge img { width: 182px; max-width: 100%; height: auto; }
+.store-badge:hover img { filter: brightness(1.15); }
+
 .commands { margin-top: 1.5rem; }
 .commands ul { margin: 0; padding: 0; list-style: none; }
 .commands li {

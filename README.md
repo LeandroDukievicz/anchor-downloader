@@ -4,6 +4,8 @@ Gerenciador de downloads do Telegram com interface TUI moderna, responsiva e
 orientada por teclado. Construído com Python, Textual e Telethon para baixar e
 organizar grandes coleções sem carregar todo o histórico do canal na memória.
 
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/anchor-downloader)
+
 ![Dashboard do Anchor Download](docs/screenshots/dashboard.png)
 
 > Captura do modo de demonstração. Nenhuma conta ou transferência real foi
