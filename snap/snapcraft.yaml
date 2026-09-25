@@ -19,6 +19,17 @@ description: |
 
     sudo snap connect anchor-downloader:removable-media
 
+  As capturas acima, na ordem:
+
+  - Painel principal: fila, velocidade, ETA e os detalhes do arquivo
+    selecionado, tudo numa tela só.
+  - Novo download: cole o link do canal ou grupo e escolha a pasta de destino.
+  - Filtros da fila: Todos, Ativos, Fila, Concluídos e Erros.
+  - Busca: filtra a fila pelo nome do arquivo enquanto você digita.
+  - Instâncias ativas: várias janelas baixando ao mesmo tempo, sem conflito.
+  - Configurações: o seu API ID, o seu API Hash e quantos downloads simultâneos.
+  - Ajuda: todos os atalhos de teclado numa tela.
+
 grade: stable
 license: MIT
 website: https://leandrodukievicz.github.io/anchor-downloader/
